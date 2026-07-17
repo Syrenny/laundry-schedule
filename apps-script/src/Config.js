@@ -11,6 +11,17 @@ var LaundryConfig = (function () {
     return parsed;
   }
 
+  function dateSetting(value, timezone, name) {
+    if (value instanceof Date) {
+      return Utilities.formatDate(value, timezone, 'yyyy-MM-dd');
+    }
+    var normalized = String(value || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+      throw new Error('Invalid ' + name + ' setting, expected YYYY-MM-DD');
+    }
+    return normalized;
+  }
+
   function readSettingsMap() {
     var rows = LaundrySheets.readObjects(LAUNDRY.SHEETS.SETTINGS);
     var settings = {};
@@ -30,10 +41,11 @@ var LaundryConfig = (function () {
     var settings = readSettingsMap();
     var props = PropertiesService.getScriptProperties();
     var appEnv = props.getProperty('APP_ENV') || String(settings.app_env || 'staging');
+    var timezone = String(settings.timezone || 'Asia/Novosibirsk');
     var config = {
       appEnv: appEnv,
-      timezone: String(settings.timezone || 'Asia/Novosibirsk'),
-      weekStart: String(settings.week_start || ''),
+      timezone: timezone,
+      weekStart: dateSetting(settings.week_start, timezone, 'week_start'),
       slotStartHour: number(settings.slot_start_hour, 'slot_start_hour'),
       slotCount: number(settings.slot_count, 'slot_count'),
       slotDurationMinutes: number(settings.slot_duration_minutes, 'slot_duration_minutes'),
@@ -46,9 +58,6 @@ var LaundryConfig = (function () {
       requireUserAllowlist: bool(settings.require_user_allowlist)
     };
 
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(config.weekStart)) {
-      throw new Error('Invalid week_start setting, expected YYYY-MM-DD');
-    }
     if (config.slotCount < 1 || config.slotCount > 48) {
       throw new Error('slot_count must be between 1 and 48');
     }
