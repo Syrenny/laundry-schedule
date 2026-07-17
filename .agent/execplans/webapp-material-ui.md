@@ -20,13 +20,13 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
 - [x] (2026-07-17 13:47Z) Добавлено требование наблюдаемости: ошибки не должны быть тихими, критичные ошибки логируются в отдельный лист и отправляются в Telegram через бота.
 - [x] (2026-07-17 13:50Z) Добавлена модель окружений: `local` для frontend mock, `staging` для тестовой Google Sheets и тестового Telegram, `production` для реальной системы.
 - [x] (2026-07-17 13:53Z) Уточнен GitHub flow: staging деплоится из ветки `staging`, которую можно force-push для тестов; production не деплоится автоматически.
-- [ ] Создать каркас проекта Apps Script и frontend.
-- [ ] Реализовать создание и валидацию новых листов Google Sheets.
-- [ ] Реализовать backend API Apps Script для расписания, записи, отмены и проверки текущего пользователя.
-- [ ] Реализовать React + Vite + Material UI frontend.
-- [ ] Добавить GitHub Actions deploy через `clasp`.
+- [x] (2026-07-17 13:55Z) Создан каркас проекта Apps Script и frontend: `apps-script/`, `web/`, `scripts/`, `secrets/`, `.github/workflows/`, root package scripts и build pipeline.
+- [x] (2026-07-17 14:05Z) Реализовано создание и валидация новых листов Google Sheets через `setupSheets()`.
+- [x] (2026-07-17 14:05Z) Реализован backend API Apps Script для расписания, записи, отмены, проверки текущего пользователя, ErrorLog и Telegram-уведомлений.
+- [x] (2026-07-17 14:05Z) Реализован React + Vite + Material UI frontend с `local` mock API.
+- [x] (2026-07-17 14:05Z) Добавлен GitHub Actions deploy через `clasp` для staging branch и ручного production deploy.
 - [ ] Провести ручную проверку webapp на тестовой копии Google Sheets.
-- [ ] Подготовить инструкцию для первичной настройки реальной Google Sheets и readonly-доступа.
+- [x] (2026-07-17 14:07Z) Подготовлена инструкция в `README.md` для локального запуска, секретов, staging deploy, production deploy, runtime checks и readonly rollout.
 
 ## Surprises & Discoveries
 
@@ -34,6 +34,10 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
   Evidence: `rg --files` показал только `Запись в прачечную 4_1.xlsx`, `README.md`, `AGENTS.md` и `LICENSE`.
 - Observation: Рабочее дерево уже содержит untracked файлы и директории, не все из них относятся к этой задаче.
   Evidence: `git status --short` показал `.agent/`, `.local/`, `.vscode/`, `AGENTS.md` и `.xlsx` как untracked.
+- Observation: Frontend build проходит, bundle Material UI получается около 388 kB до gzip и 121 kB gzip.
+  Evidence: `npm run build` завершился успешно; Vite output показал `dist/assets/index-CKPXchSf.js 388.13 kB │ gzip: 121.37 kB`.
+- Observation: Для автоматической записи runtime secrets через `clasp run setRuntimeSecretsFromJson` нужен admin-пользователь в листе `Users`.
+  Evidence: функция `setRuntimeSecretsFromJson` вызывает `LaundryUsers.assertAdmin(actor)`, чтобы не оставлять публичную server function для перезаписи Telegram token и spreadsheet ids.
 
 ## Decision Log
 
@@ -79,7 +83,9 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
 
 ## Outcomes & Retrospective
 
-Пока реализация не начата. Этот ExecPlan описывает желаемую архитектуру и порядок внедрения. Первый рабочий результат должен быть проверен на тестовой копии Google Sheets до подключения к реальной таблице общежития.
+2026-07-17: Реализован первый MVP-каркас. Есть Apps Script backend, React/Vite/MUI frontend, build pipeline, `sops` templates, GitHub Actions deploy workflow, локальный mock mode, ErrorLog и Telegram notification code. Локальная сборка проходит. Ручная проверка в реальном Apps Script deployment еще не выполнена, потому что для нее нужны реальные Google credentials, `scriptId`, staging Google Sheet и `sops` secrets.
+
+2026-07-17: README обновлен инструкциями для локальной разработки, сборки, `sops`-секретов, staging branch deploy, ручного production deploy и readonly rollout. Остается провести проверку в staging Google Sheets после настройки реальных секретов.
 
 ## Context and Orientation
 
