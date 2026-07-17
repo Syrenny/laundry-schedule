@@ -65,7 +65,8 @@ function makeRuntime(reservations) {
           ? [{ id: 'haier_1', name: 'Haier 1', enabled: true, sort_order: 1 }]
           : rows,
       appendObject: () => {},
-      updateObjectById: () => {}
+      updateObjectById: () => {},
+      getSpreadsheet: () => ({ getName: () => 'Test Laundry' })
     },
     LaundryAuditLog: { record: () => {} },
     LockService: {
@@ -115,5 +116,30 @@ test('reserveSlot обнаруживает конфликт, когда дата
         weekStart: '2026-07-20'
       }),
     /Slot is already occupied/
+  );
+});
+
+test('getReservationsProbe объясняет сопоставление строки со слотом', () => {
+  const api = makeRuntime([sheetReservation()]);
+  const probe = api.getReservationsProbe('2026-07-20');
+
+  assert.equal(probe.spreadsheetName, 'Test Laundry');
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(probe.rows[0])),
+    {
+      id: 'reservation-1',
+      rawDateType: '[object Date]',
+      rawDate: 'Sun Jul 19 2026 17:00:00 GMT+0000 (Coordinated Universal Time)',
+      normalizedDate: '2026-07-20',
+      rawStartTimeType: '[object Date]',
+      rawStartTime: 'Mon Jul 20 2026 04:00:00 GMT+0000 (Coordinated Universal Time)',
+      normalizedStartTime: '11:00',
+      machineId: 'haier_1',
+      status: 'active',
+      matchesWeek: true,
+      matchesTime: true,
+      matchesMachine: true,
+      slotKey: '2026-07-20|11:00|haier_1'
+    }
   );
 });

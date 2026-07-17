@@ -164,6 +164,47 @@ var LaundryReservations = (function () {
     };
   }
 
+  function getReservationsProbe(weekStartIso) {
+    var config = LaundryConfig.getConfig();
+    var weekStart = weekStartIso || config.weekStart;
+    var startDate = parseIsoDate(weekStart);
+    var dates = [];
+    for (var day = 0; day < 7; day += 1) {
+      dates.push(isoDate(addDays(startDate, day)));
+    }
+    var machines = enabledMachines();
+    var machineIds = machines.map(function (machine) { return machine.id; });
+    var allowedTimes = slotTimes(config).map(function (slot) { return slot.startTime; });
+
+    return {
+      spreadsheetName: LaundrySheets.getSpreadsheet().getName(),
+      weekStart: weekStart,
+      timezone: config.timezone,
+      machineIds: machineIds,
+      allowedTimes: allowedTimes,
+      rows: activeReservations().slice(-10).map(function (reservation) {
+        var normalizedDate = normalizeStoredDate(reservation.date, config.timezone);
+        var normalizedTime = normalizeStoredTime(reservation.start_time, config.timezone);
+        var machineId = String(reservation.machine_id || '').trim();
+        return {
+          id: String(reservation.id || ''),
+          rawDateType: Object.prototype.toString.call(reservation.date),
+          rawDate: String(reservation.date || ''),
+          normalizedDate: normalizedDate,
+          rawStartTimeType: Object.prototype.toString.call(reservation.start_time),
+          rawStartTime: String(reservation.start_time || ''),
+          normalizedStartTime: normalizedTime,
+          machineId: machineId,
+          status: String(reservation.status || ''),
+          matchesWeek: dates.indexOf(normalizedDate) !== -1,
+          matchesTime: allowedTimes.indexOf(normalizedTime) !== -1,
+          matchesMachine: machineIds.indexOf(machineId) !== -1,
+          slotKey: [normalizedDate, normalizedTime, machineId].join('|')
+        };
+      })
+    };
+  }
+
   function reserveSlot(request) {
     var normalized = normalizeRequest(request);
     var lock = LockService.getScriptLock();
@@ -257,6 +298,7 @@ var LaundryReservations = (function () {
 
   return {
     cancelReservation: cancelReservation,
+    getReservationsProbe: getReservationsProbe,
     getWeekSchedule: getWeekSchedule,
     reserveSlot: reserveSlot
   };

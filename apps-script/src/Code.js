@@ -22,6 +22,14 @@ function getWeekSchedule(weekStartIso) {
   });
 }
 
+function getReservationsProbe(weekStartIso) {
+  var result = LaundryApi.handle('getReservationsProbe', function () {
+    return LaundryReservations.getReservationsProbe(weekStartIso);
+  });
+  console.log(JSON.stringify(result));
+  return result;
+}
+
 function reserveSlot(request) {
   return LaundryApi.handle('reserveSlot', function () {
     return LaundryReservations.reserveSlot(request);
