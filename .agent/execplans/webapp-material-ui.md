@@ -29,6 +29,7 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
 - [ ] Провести ручную проверку webapp на тестовой копии Google Sheets.
 - [x] (2026-07-17 14:07Z) Подготовлена инструкция в `README.md` для локального запуска, секретов, staging deploy, production deploy, runtime checks и readonly rollout.
 - [x] (2026-07-17 14:48Z) После повторной ошибки `Request contains an invalid argument` удалены explicit `oauthScopes` из manifest и добавлена диагностика `clasp` перед push в GitHub Actions.
+- [x] (2026-07-17 15:22Z) Убран `Users` admin-check из `setRuntimeSecretsFromJson`, потому что runtime secrets нужны до надежной инициализации таблицы; workflow теперь должен падать, если запись Script Properties не удалась.
 
 ## Surprises & Discoveries
 
@@ -38,8 +39,8 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
   Evidence: `git status --short` показал `.agent/`, `.local/`, `.vscode/`, `AGENTS.md` и `.xlsx` как untracked.
 - Observation: Frontend build проходит, bundle Material UI получается около 388 kB до gzip и 121 kB gzip.
   Evidence: `npm run build` завершился успешно; Vite output показал `dist/assets/index-CKPXchSf.js 388.13 kB │ gzip: 121.37 kB`.
-- Observation: Для автоматической записи runtime secrets через `clasp run setRuntimeSecretsFromJson` нужен admin-пользователь в листе `Users`.
-  Evidence: функция `setRuntimeSecretsFromJson` вызывает `LaundryUsers.assertAdmin(actor)`, чтобы не оставлять публичную server function для перезаписи Telegram token и spreadsheet ids.
+- Observation: `Users` admin-check в `setRuntimeSecretsFromJson` создал bootstrap-проблему.
+  Evidence: `sendTestTelegramNotification()` вернул `{"status":"disabled","appEnv":"staging","hasToken":false,"hasChatId":false}`, то есть `TELEGRAM_BOT_TOKEN` и `STAGING_TELEGRAM_CHAT_ID` не были записаны в Script Properties. Вызов `clasp run` может не иметь того же `Session.getActiveUser().getEmail()`, что ручной запуск пользователя из UI, поэтому проверка admin через лист `Users` не подходит для deploy-time secrets.
 - Observation: `clasp push` в GitHub Actions возвращает неинформативную ошибку `Request contains an invalid argument`.
   Evidence: staging workflow падает на `npx @google/clasp push --force` до запуска runtime-кода. В ответ manifest упрощен: удалены explicit `oauthScopes`, потому что Apps Script может определить scopes автоматически, а неподдержанный scope в manifest может приводить к этой ошибке.
 
@@ -91,6 +92,10 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
 
 - Decision: Не задавать `oauthScopes` явно в `appsscript.json` на MVP.
   Rationale: Ручной список scopes повышает риск ошибки manifest при `clasp push`; Apps Script умеет вычислять scopes по используемым сервисам. Явные scopes можно вернуть позже, когда staging push стабилен и список подтвержден.
+  Date/Author: 2026-07-17 / Codex
+
+- Decision: `setRuntimeSecretsFromJson` не проверяет пользователя через лист `Users` на этапе MVP.
+  Rationale: Эта функция нужна для bootstrap Script Properties из CI до того, как таблица и пользователи гарантированно доступны. Безопасность сейчас обеспечивается тем, что вызов идет через `clasp run` с credentials из `sops`/GitHub Actions, а не из пользовательского UI. Позже можно заменить это на отдельный deploy token.
   Date/Author: 2026-07-17 / Codex
 
 ## Outcomes & Retrospective

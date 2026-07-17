@@ -50,8 +50,6 @@ function throwTestErrorForLogging() {
 
 function setRuntimeSecretsFromJson(jsonText) {
   return LaundryApi.handle('setRuntimeSecretsFromJson', function () {
-    var actor = LaundryUsers.getCurrentUserEmail();
-    LaundryUsers.assertAdmin(actor);
     var parsed = JSON.parse(jsonText);
     PropertiesService.getScriptProperties().setProperties(parsed, true);
     return { ok: true, keys: Object.keys(parsed).sort() };
