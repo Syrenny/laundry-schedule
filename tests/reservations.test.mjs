@@ -31,6 +31,7 @@ function formatDate(date, timezone, pattern) {
 
 function makeRuntime(reservations, metrics = {}) {
   const rows = reservations.map((row) => ({ ...row }));
+  const cache = new Map();
   const context = {
     Date,
     console: {
@@ -82,6 +83,17 @@ function makeRuntime(reservations, metrics = {}) {
         getSpreadsheetTimeZone: () => 'Etc/GMT-8'
       })
     },
+    PropertiesService: {
+      getScriptProperties: () => ({ getProperty: () => null })
+    },
+    CacheService: metrics.cache
+      ? {
+          getScriptCache: () => ({
+            get: (key) => cache.get(key) || null,
+            put: (key, value) => cache.set(key, value)
+          })
+        }
+      : undefined,
     LaundryAuditLog: { record: () => {} },
     LockService: {
       getScriptLock: () => ({ tryLock: () => true, releaseLock: () => {} })
@@ -165,6 +177,17 @@ test('reserveSlot строит ответ без повторного чтени
     'auditWrite',
     'build'
   ]);
+});
+
+test('getWeekSchedule кеширует Machines, но перечитывает Reservations', () => {
+  const metrics = { cache: true };
+  const api = makeRuntime([], metrics);
+
+  api.getWeekSchedule('2026-07-20');
+  api.getWeekSchedule('2026-07-20');
+
+  assert.equal(metrics.reads.Machines, 1);
+  assert.equal(metrics.reads.Reservations, 2);
 });
 
 test('getReservationsProbe объясняет сопоставление строки со слотом', () => {

@@ -1,4 +1,22 @@
 var LaundryUsers = (function () {
+  var USERS_CACHE_SECONDS = 60;
+
+  function usersCacheKey() {
+    var props = PropertiesService.getScriptProperties();
+    return 'laundry_users_v1_' + (props.getProperty('APP_ENV') || 'staging');
+  }
+
+  function readCachedUsers() {
+    if (typeof CacheService === 'undefined') return null;
+    var cached = CacheService.getScriptCache().get(usersCacheKey());
+    return cached ? JSON.parse(cached) : null;
+  }
+
+  function writeCachedUsers(users) {
+    if (typeof CacheService === 'undefined') return;
+    CacheService.getScriptCache().put(usersCacheKey(), JSON.stringify(users), USERS_CACHE_SECONDS);
+  }
+
   function getCurrentUserEmail() {
     return Session.getActiveUser().getEmail() || '';
   }
@@ -13,6 +31,9 @@ var LaundryUsers = (function () {
   }
 
   function getUsersByEmail() {
+    var cached = readCachedUsers();
+    if (cached) return cached;
+
     var users = {};
     LaundrySheets.readObjects(LAUNDRY.SHEETS.USERS).forEach(function (row) {
       var email = String(row.email || '').trim().toLowerCase();
@@ -26,6 +47,7 @@ var LaundryUsers = (function () {
         };
       }
     });
+    writeCachedUsers(users);
     return users;
   }
 

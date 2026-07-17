@@ -1,4 +1,22 @@
 var LaundryConfig = (function () {
+  var CONFIG_CACHE_SECONDS = 300;
+
+  function cacheKey() {
+    var props = PropertiesService.getScriptProperties();
+    return 'laundry_config_v1_' + (props.getProperty('APP_ENV') || 'staging');
+  }
+
+  function readCachedConfig() {
+    if (typeof CacheService === 'undefined') return null;
+    var cached = CacheService.getScriptCache().get(cacheKey());
+    return cached ? JSON.parse(cached) : null;
+  }
+
+  function writeCachedConfig(config) {
+    if (typeof CacheService === 'undefined') return;
+    CacheService.getScriptCache().put(cacheKey(), JSON.stringify(config), CONFIG_CACHE_SECONDS);
+  }
+
   function bool(value) {
     return String(value).toLowerCase() === 'true';
   }
@@ -38,6 +56,9 @@ var LaundryConfig = (function () {
   }
 
   function getConfig() {
+    var cached = readCachedConfig();
+    if (cached) return cached;
+
     var settings = readSettingsMap();
     var props = PropertiesService.getScriptProperties();
     var appEnv = props.getProperty('APP_ENV') || String(settings.app_env || 'staging');
@@ -64,6 +85,7 @@ var LaundryConfig = (function () {
     if (config.slotDurationMinutes < 15 || config.slotDurationMinutes > 240) {
       throw new Error('slot_duration_minutes must be between 15 and 240');
     }
+    writeCachedConfig(config);
     return config;
   }
 

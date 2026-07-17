@@ -1,4 +1,22 @@
 var LaundryReservations = (function () {
+  var MACHINES_CACHE_SECONDS = 300;
+
+  function machinesCacheKey() {
+    var props = PropertiesService.getScriptProperties();
+    return 'laundry_machines_v1_' + (props.getProperty('APP_ENV') || 'staging');
+  }
+
+  function readCachedMachines() {
+    if (typeof CacheService === 'undefined') return null;
+    var cached = CacheService.getScriptCache().get(machinesCacheKey());
+    return cached ? JSON.parse(cached) : null;
+  }
+
+  function writeCachedMachines(machines) {
+    if (typeof CacheService === 'undefined') return;
+    CacheService.getScriptCache().put(machinesCacheKey(), JSON.stringify(machines), MACHINES_CACHE_SECONDS);
+  }
+
   function createProfiler(operation) {
     var startedAt = Date.now();
     var previousAt = startedAt;
@@ -73,7 +91,10 @@ var LaundryReservations = (function () {
   }
 
   function enabledMachines() {
-    return LaundrySheets.readObjects(LAUNDRY.SHEETS.MACHINES)
+    var cached = readCachedMachines();
+    if (cached) return cached;
+
+    var machines = LaundrySheets.readObjects(LAUNDRY.SHEETS.MACHINES)
       .filter(function (row) { return String(row.enabled || '').toLowerCase() === 'true'; })
       .map(function (row) {
         return {
@@ -85,6 +106,8 @@ var LaundryReservations = (function () {
       })
       .filter(function (machine) { return machine.id && machine.name; })
       .sort(function (a, b) { return a.sortOrder - b.sortOrder; });
+    writeCachedMachines(machines);
+    return machines;
   }
 
   function activeReservations() {
