@@ -8,34 +8,13 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       react(),
-      {
-        name: 'apps-script-htmlservice-safe-js',
-        apply: 'build',
-        generateBundle(_, bundle) {
-          if (!isAppsScript) return;
-
-          for (const asset of Object.values(bundle)) {
-            if (asset.type === 'chunk') {
-              asset.code = asset.code.replaceAll('javascript:', 'java" + "script:');
-            }
-          }
-        }
-      },
       ...(isAppsScript ? [viteSingleFile()] : [])
     ],
     build: {
       outDir: 'dist',
-      assetsDir: 'assets',
       target: isAppsScript ? 'es2019' : 'modules',
       sourcemap: false,
-      minify: isAppsScript ? false : 'esbuild',
-      modulePreload: isAppsScript ? false : undefined,
-      rollupOptions: {
-        output: {
-          inlineDynamicImports: isAppsScript,
-          manualChunks: isAppsScript ? undefined : undefined
-        }
-      }
+      minify: isAppsScript ? false : 'esbuild'
     }
   };
 });
