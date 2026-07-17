@@ -18,6 +18,10 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
 - [x] (2026-07-17T17:53:54Z) Добавить тесты на вычисление понедельника недели, форматирование дат и замену тегов.
 - [x] (2026-07-17T17:53:54Z) Обновить документацию по листу-шаблону и функциям запуска.
 - [x] (2026-07-17T17:53:54Z) Запустить тесты и сборку Apps Script.
+- [x] (2026-07-17T17:53:54Z) Получено уточнение: удалить всю логику, которая не относится к стратегии листа-шаблона.
+- [x] (2026-07-17T17:53:54Z) Удалить web-приложение, API бронирований, служебные листы как базу данных и связанные тесты.
+- [x] (2026-07-17T17:53:54Z) Упростить `Code.js`, `Sheets.js`, build script, README и тесты под единственную идею weekly template reset.
+- [x] (2026-07-17T17:53:54Z) Повторно запустить тесты и сборку после чистки.
 
 ## Surprises & Discoveries
 
@@ -26,6 +30,9 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
 
 - Observation: В рабочем дереве уже изменен `README.md`, а `.xlsx` находится как untracked-файл.
   Evidence: `git status --short` показал ` M README.md` и `?? "Запись в прачечную 4_1.xlsx"`.
+
+- Observation: Старая архитектура состоит из трех удаляемых блоков: Vite webapp, Apps Script API бронирований и тесты под `Config`/`Reservations`.
+  Evidence: `rg` нашел ссылки на `getWeekSchedule`, `reserveSlot`, `cancelReservation`, `LaundryReservations`, `LaundryConfig`, `LaundryUsers` в `web/`, `apps-script/src/*` и `tests/*`.
 
 ## Decision Log
 
@@ -41,11 +48,15 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
   Rationale: Это соответствует примеру таблицы, где первые четыре машинки являются записными, а пятая явно не по записи. Значения можно переопределить через script properties без изменения кода.
   Date/Author: 2026-07-17 / Codex
 
+- Decision: Удалить web-приложение и старый API бронирований полностью, а не оставлять неиспользуемый код рядом с weekly reset.
+  Rationale: Пользователь прямо уточнил, что из репозитория надо убрать всю логику вне идеи с шаблоном. Наличие старых entrypoints создает ложное ожидание, что таблица все еще работает как база данных.
+  Date/Author: 2026-07-17 / Codex
+
 ## Outcomes & Retrospective
 
-Реализация завершена для атомарного шага еженедельного восстановления расписания. В проекте есть функция `resetWeeklySchedule`, которая перезаписывает целевые листы из `ScheduleTemplate` и подставляет даты недели. Функции `installWeeklyResetTrigger` и `removeWeeklyResetTriggers` управляют еженедельным trigger. Тесты подтверждают вычисление начала недели и замену тегов дат.
+Реализация завершена для атомарного шага еженедельного восстановления расписания и последующей чистки старой архитектуры. В проекте есть функция `resetWeeklySchedule`, которая перезаписывает целевые листы из `ScheduleTemplate` и подставляет даты недели. Функции `installWeeklyResetTrigger` и `removeWeeklyResetTriggers` управляют еженедельным trigger. Web-приложение, API бронирований, служебные листы как база данных и связанные тесты удалены.
 
-Проверка выполнена командами `npm test` и `npm run build:apps-script`; обе команды завершились успешно.
+Проверка выполнена командами `npm test` и `npm run build:apps-script`; обе команды завершились успешно после чистки.
 
 ## Context and Orientation
 
@@ -69,6 +80,8 @@ Script properties должны поддерживать:
 - `SCHEDULE_RESET_TRIGGER_HOUR`: час trigger, по умолчанию `0`.
 
 Копирование шаблона должно быть простым и полным для используемой области листа: очистить целевой лист, привести его количество строк и колонок к размеру шаблона, скопировать range шаблона в target range через `copyTo`, а затем заменить теги дат в значениях target range. Если целевого листа нет, его надо создать. Если лист-шаблон не найден, функция должна бросить понятную ошибку.
+
+После уточнения пользователя удалить `web/`, `apps-script/src/Api.js`, `AuditLog.js`, `Config.js`, `Constants.js`, `ErrorLog.js`, `Notifications.js`, `Reservations.js`, `Users.js`, а также тесты `tests/config.test.mjs` и `tests/reservations.test.mjs`. `apps-script/src/Sheets.js` упростить до открытия spreadsheet по script properties или active spreadsheet. `apps-script/src/Code.js` упростить до трех публичных функций для weekly reset без `LaundryApi.handle`.
 
 Затем добавить thin wrappers в `apps-script/src/Code.js`, чтобы функции можно было запускать из редактора Apps Script: `resetWeeklySchedule`, `installWeeklyResetTrigger`, `removeWeeklyResetTriggers`.
 
@@ -107,7 +120,9 @@ Script properties должны поддерживать:
 
 Ожидаемый результат тестов: все тесты `node --test tests/*.test.mjs` проходят. Ожидаемый результат сборки: `Built Apps Script project in apps-script/dist`.
 
-Фактический результат 2026-07-17: `npm test` прошел 15 тестов из 15; `npm run build:apps-script` вывел `Built Apps Script project in apps-script/dist`.
+Фактический результат 2026-07-17 до чистки старой архитектуры: `npm test` прошел 15 тестов из 15; `npm run build:apps-script` вывел `Built Apps Script project in apps-script/dist`.
+
+Фактический результат 2026-07-17 после чистки старой архитектуры: `npm test` прошел 5 тестов из 5; `npm run build:apps-script` вывел `Built Apps Script project in apps-script/dist`. Содержимое `apps-script/dist`: `Code.js`, `Sheets.js`, `WeeklyReset.js`, `appsscript.json`.
 
 ## Validation and Acceptance
 
@@ -159,3 +174,7 @@ Script properties должны поддерживать:
 2026-07-17 / Codex: Создан исходный ExecPlan после анализа текущей архитектуры и примера `.xlsx`; план фиксирует минимальный атомарный переход к еженедельному восстановлению расписания из листа-шаблона.
 
 2026-07-17 / Codex: ExecPlan обновлен после реализации `WeeklyReset.js`, тестов, README-инструкции и успешной проверки; причина изменения — документ должен отражать фактический завершенный атомарный шаг.
+
+2026-07-17 / Codex: ExecPlan обновлен после уточнения пользователя об удалении лишней логики; причина изменения — объем работы расширился с добавления weekly reset до удаления старой web/API-архитектуры.
+
+2026-07-17 / Codex: ExecPlan обновлен после удаления старой web/API-архитектуры и успешной проверки; причина изменения — документ должен отражать завершенное состояние минимального проекта.

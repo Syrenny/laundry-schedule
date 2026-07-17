@@ -1,3 +1,3 @@
 # Scripts
 
-`build-apps-script.mjs` копирует исходные файлы Apps Script и single-file сборку Vite в `apps-script/dist`, чтобы `clasp push` мог развернуть самодостаточный Apps Script webapp. Перед запуском скрипта `vite-plugin-singlefile` встраивает JavaScript и CSS в `web/dist/index.html`.
+`build-apps-script.mjs` копирует минимальный Apps Script-проект из `apps-script/src` в `apps-script/dist`, чтобы `clasp push` мог развернуть скрипт еженедельного восстановления расписания из шаблона.
