@@ -36,15 +36,9 @@ function cancelReservation(reservationId) {
 
 function sendTestTelegramNotification() {
   return LaundryApi.handle('sendTestTelegramNotification', function () {
-    var actor = LaundryUsers.getCurrentUserEmail();
-    return LaundryNotifications.notifyError({
-      severity: 'error',
-      context: 'sendTestTelegramNotification',
-      actorEmail: actor,
-      message: 'Test Telegram notification from laundry schedule',
-      stack: '',
-      details: { test: true }
-    });
+    var result = LaundryNotifications.sendTelegramMessage('Test Telegram notification from laundry schedule');
+    console.log(JSON.stringify(result));
+    return result;
   });
 }
 

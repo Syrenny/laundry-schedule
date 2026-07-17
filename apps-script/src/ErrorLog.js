@@ -2,7 +2,11 @@ var LaundryErrorLog = (function () {
   function record(entry) {
     var telegramStatus = 'skipped';
     try {
-      telegramStatus = LaundryNotifications.notifyError(entry).status;
+      var notificationResult = LaundryNotifications.notifyError(entry);
+      telegramStatus = notificationResult.status;
+      if (notificationResult.description) {
+        telegramStatus += ': ' + notificationResult.description;
+      }
     } catch (notificationError) {
       telegramStatus = 'failed';
       console.error('Telegram notification failed', notificationError);

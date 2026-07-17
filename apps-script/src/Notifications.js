@@ -20,12 +20,16 @@ var LaundryNotifications = (function () {
     return current >= min;
   }
 
-  function notifyError(entry) {
-    var config = getNotificationConfig();
-    if (!shouldNotify(config, entry.severity || 'error')) {
-      return { status: 'skipped' };
+  function parseTelegramResponse(responseText) {
+    try {
+      return JSON.parse(responseText || '{}');
+    } catch (error) {
+      return { ok: false, description: 'Invalid JSON response: ' + String(responseText).slice(0, 200) };
     }
+  }
 
+  function sendTelegramMessage(text) {
+    var config = getNotificationConfig();
     var props = PropertiesService.getScriptProperties();
     var token = props.getProperty('TELEGRAM_BOT_TOKEN');
     var chatId = config.appEnv === 'production'
@@ -33,17 +37,15 @@ var LaundryNotifications = (function () {
       : props.getProperty('STAGING_TELEGRAM_CHAT_ID');
 
     if (!token || !chatId) {
-      return { status: 'disabled' };
+      return {
+        status: 'disabled',
+        appEnv: config.appEnv,
+        hasToken: Boolean(token),
+        hasChatId: Boolean(chatId)
+      };
     }
 
-    var text = [
-      '[laundry-schedule][' + config.appEnv + '] ' + (entry.severity || 'error'),
-      'context: ' + (entry.context || ''),
-      'actor: ' + (entry.actorEmail || 'unknown'),
-      'message: ' + (entry.message || '')
-    ].join('\n');
-
-    UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
+    var response = UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
       method: 'post',
       contentType: 'application/json',
       muteHttpExceptions: true,
@@ -53,10 +55,44 @@ var LaundryNotifications = (function () {
       })
     });
 
-    return { status: 'sent' };
+    var responseCode = response.getResponseCode();
+    var responseText = response.getContentText();
+    var parsed = parseTelegramResponse(responseText);
+    if (responseCode < 200 || responseCode >= 300 || parsed.ok !== true) {
+      return {
+        status: 'failed',
+        appEnv: config.appEnv,
+        responseCode: responseCode,
+        description: parsed.description || responseText.slice(0, 200)
+      };
+    }
+
+    return {
+      status: 'sent',
+      appEnv: config.appEnv,
+      responseCode: responseCode,
+      messageId: parsed.result && parsed.result.message_id ? parsed.result.message_id : ''
+    };
+  }
+
+  function notifyError(entry) {
+    var config = getNotificationConfig();
+    if (!shouldNotify(config, entry.severity || 'error')) {
+      return { status: 'skipped' };
+    }
+
+    var text = [
+      '[laundry-schedule][' + config.appEnv + '] ' + (entry.severity || 'error'),
+      'context: ' + (entry.context || ''),
+      'actor: ' + (entry.actorEmail || 'unknown'),
+      'message: ' + (entry.message || '')
+    ].join('\n');
+
+    return sendTelegramMessage(text);
   }
 
   return {
-    notifyError: notifyError
+    notifyError: notifyError,
+    sendTelegramMessage: sendTelegramMessage
   };
 })();
