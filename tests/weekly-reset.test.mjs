@@ -34,8 +34,7 @@ test('replaceDateTagsInValues заменяет одиночный тег на Da
   const result = api.replaceDateTagsInValues(
     [['{{date:+0}}', '{{date:+6}}']],
     new Date('2026-07-13T12:00:00Z'),
-    'UTC',
-    'ru'
+    'UTC'
   );
 
   assert.ok(result[0][0] instanceof Date);
@@ -56,8 +55,7 @@ test('replaceDateTagsInValues форматирует встроенные тег
   const result = api.replaceDateTagsInValues(
     [['Неделя с {{date:+0|dd.MM.yyyy}} до {{date:+6|dd.MM.yyyy}}']],
     new Date('2026-07-13T12:00:00Z'),
-    'Asia/Novosibirsk',
-    'ru'
+    'Asia/Novosibirsk'
   );
 
   assert.deepEqual(result, [['Неделя с 2026-07-13 до 2026-07-19']]);
@@ -69,13 +67,26 @@ test('replaceDateTagsInValues не меняет обычные значения'
   const result = api.replaceDateTagsInValues(
     [['plain text', 42, originalDate]],
     new Date('2026-07-13T12:00:00Z'),
-    'UTC',
-    'en'
+    'UTC'
   );
 
   assert.equal(result[0][0], 'plain text');
   assert.equal(result[0][1], 42);
   assert.equal(result[0][2], originalDate);
+});
+
+test('replaceDateTagsInValues требует явный формат для даты внутри текста', () => {
+  const api = makeApi();
+
+  assert.throws(
+    () =>
+      api.replaceDateTagsInValues(
+        [['Неделя с {{date:+0}}']],
+        new Date('2026-07-13T12:00:00Z'),
+        'UTC'
+      ),
+    /Date tag inside text must include explicit format/
+  );
 });
 
 test('installWeeklyResetTrigger использует день начала недели', () => {

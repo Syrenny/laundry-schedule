@@ -3,7 +3,6 @@ var LaundryWeeklyReset = (function () {
   var DEFAULT_TARGET_SHEET_NAMES = ['Haier 1', 'Haier 2', 'Haier 3', 'Haier 4'];
   var DEFAULT_WEEK_START_DAY = 'MONDAY';
   var DEFAULT_TRIGGER_HOUR = 0;
-  var DEFAULT_DATE_LOCALE = 'en';
   var RESET_FUNCTION_NAME = 'resetWeeklySchedule';
 
   var WEEK_DAYS = {
@@ -61,7 +60,6 @@ var LaundryWeeklyReset = (function () {
       templateSheetName: property('SCHEDULE_TEMPLATE_SHEET_NAME', DEFAULT_TEMPLATE_SHEET_NAME),
       targetSheetNames: targetSheetNames(),
       weekStartDay: normalizedWeekDay(property('SCHEDULE_WEEK_START_DAY', DEFAULT_WEEK_START_DAY), DEFAULT_WEEK_START_DAY),
-      dateLocale: property('SCHEDULE_DATE_LOCALE', DEFAULT_DATE_LOCALE),
       triggerHour: numberProperty('SCHEDULE_RESET_TRIGGER_HOUR', DEFAULT_TRIGGER_HOUR, 0, 23)
     };
   }
@@ -108,11 +106,7 @@ var LaundryWeeklyReset = (function () {
       .replace(/dd/g, day);
   }
 
-  function localizedDefaultPattern(locale) {
-    return String(locale || '').toLowerCase().indexOf('ru') === 0 ? 'dd.MM.yyyy' : 'yyyy-MM-dd';
-  }
-
-  function replaceDateTagsInValue(value, weekStart, timezone, locale) {
+  function replaceDateTagsInValue(value, weekStart, timezone) {
     if (typeof value !== 'string' || value.indexOf('{{date:') === -1) return value;
 
     var exactMatch = value.match(/^\{\{date:([+-]?\d+)(?:\|([^}]+))?\}\}$/);
@@ -121,18 +115,17 @@ var LaundryWeeklyReset = (function () {
     }
 
     return value.replace(/\{\{date:([+-]?\d+)(?:\|([^}]+))?\}\}/g, function (_, offset, pattern) {
-      return formatDate(
-        addDays(weekStart, Number(offset)),
-        timezone,
-        pattern || localizedDefaultPattern(locale)
-      );
+      if (!pattern) {
+        throw new Error('Date tag inside text must include explicit format: {{date:+0|dd.MM.yyyy}}');
+      }
+      return formatDate(addDays(weekStart, Number(offset)), timezone, pattern);
     });
   }
 
-  function replaceDateTagsInValues(values, weekStart, timezone, locale) {
+  function replaceDateTagsInValues(values, weekStart, timezone) {
     return values.map(function (row) {
       return row.map(function (value) {
-        return replaceDateTagsInValue(value, weekStart, timezone, locale);
+        return replaceDateTagsInValue(value, weekStart, timezone);
       });
     });
   }
@@ -152,7 +145,7 @@ var LaundryWeeklyReset = (function () {
     }
   }
 
-  function resetTargetSheet(templateSheet, targetSheet, weekStart, timezone, locale) {
+  function resetTargetSheet(templateSheet, targetSheet, weekStart, timezone) {
     var sourceRange = templateSheet.getDataRange();
     var rows = sourceRange.getNumRows();
     var columns = sourceRange.getNumColumns();
@@ -162,7 +155,7 @@ var LaundryWeeklyReset = (function () {
     sourceRange.copyTo(targetSheet.getRange(1, 1, rows, columns), { contentsOnly: false });
 
     var targetRange = targetSheet.getRange(1, 1, rows, columns);
-    var values = replaceDateTagsInValues(targetRange.getValues(), weekStart, timezone, locale);
+    var values = replaceDateTagsInValues(targetRange.getValues(), weekStart, timezone);
     targetRange.setValues(values);
     targetSheet.setFrozenRows(templateSheet.getFrozenRows());
     targetSheet.setFrozenColumns(templateSheet.getFrozenColumns());
@@ -195,7 +188,7 @@ var LaundryWeeklyReset = (function () {
       }
 
       var targetSheet = spreadsheet.getSheetByName(sheetName) || spreadsheet.insertSheet(sheetName);
-      resetTargetSheet(templateSheet, targetSheet, weekStart, timezone, options.dateLocale);
+      resetTargetSheet(templateSheet, targetSheet, weekStart, timezone);
       report.targetSheetNames.push(sheetName);
     });
 

@@ -75,7 +75,6 @@ Script properties должны поддерживать:
 - `SCHEDULE_TEMPLATE_SHEET_NAME`: имя листа-шаблона, по умолчанию `ScheduleTemplate`.
 - `SCHEDULE_TARGET_SHEET_NAMES`: список рабочих листов через запятую, по умолчанию `Haier 1,Haier 2,Haier 3,Haier 4`.
 - `SCHEDULE_WEEK_START_DAY`: день начала недели, по умолчанию `MONDAY`.
-- `SCHEDULE_DATE_LOCALE`: locale для fallback-форматирования строк, по умолчанию `en`.
 - `SCHEDULE_RESET_TRIGGER_HOUR`: час trigger, по умолчанию `0`. День trigger совпадает с `SCHEDULE_WEEK_START_DAY`.
 
 Копирование шаблона должно быть простым и полным для используемой области листа: очистить целевой лист, привести его количество строк и колонок к размеру шаблона, скопировать range шаблона в target range через `copyTo`, а затем заменить теги дат в значениях target range. Если целевого листа нет, его надо создать. Если лист-шаблон не найден, функция должна бросить понятную ошибку.
@@ -162,7 +161,7 @@ Script properties должны поддерживать:
 
     startOfWeek(date, weekStartDay)
     addDays(date, days)
-    replaceDateTagsInValues(values, weekStart, timezone, locale)
+    replaceDateTagsInValues(values, weekStart, timezone)
 
 В `apps-script/src/Code.js` должны существовать глобальные wrapper-функции с теми же именами для ручного запуска в Apps Script.
 
@@ -179,3 +178,5 @@ Script properties должны поддерживать:
 2026-07-17 / Codex: ExecPlan обновлен после удаления старой web/API-архитектуры и успешной проверки; причина изменения — документ должен отражать завершенное состояние минимального проекта.
 
 2026-07-17 / Codex: ExecPlan обновлен после упрощения настроек trigger; причина изменения — отдельный `SCHEDULE_RESET_TRIGGER_DAY` позволял создать противоречивую конфигурацию, поэтому день автозапуска теперь всегда берется из `SCHEDULE_WEEK_START_DAY`.
+
+2026-07-17 / Codex: ExecPlan обновлен после удаления `SCHEDULE_DATE_LOCALE`; причина изменения — формат строковых тегов теперь должен быть задан явно в шаблоне, чтобы не было скрытого fallback-поведения.

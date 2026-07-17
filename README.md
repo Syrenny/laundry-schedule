@@ -11,16 +11,15 @@ Google Apps Script automation for maintaining a rolling dormitory laundry schedu
 
 - `{{date:+0}}` — дата начала недели; если тег занимает всю ячейку, скрипт запишет значение типа `Date`, а формат отображения возьмется из формата ячейки шаблона.
 - `{{date:+1}}` ... `{{date:+6}}` — следующие дни недели.
-- `{{date:+0|dd.MM.yyyy}}` — строковая подстановка с явным форматом, удобна для текста внутри длинной ячейки.
+- `{{date:+0|dd.MM.yyyy}}` — строковая подстановка с обязательным явным форматом, удобна для текста внутри длинной ячейки.
+- `{{date:+0|dd.MM.yyyy, EEE}}` — дата с коротким днем недели. Формат после `|` обрабатывается через Apps Script `Utilities.formatDate`, поэтому день недели задается как `EEE` или `EEEE`, а не как `ddd`.
 
 Доступные script properties:
 
 - `SCHEDULE_TEMPLATE_SHEET_NAME` — имя шаблонного листа, по умолчанию `ScheduleTemplate`.
 - `SCHEDULE_TARGET_SHEET_NAMES` — рабочие листы через запятую, по умолчанию `Haier 1,Haier 2,Haier 3,Haier 4`.
 - `SCHEDULE_WEEK_START_DAY` — день начала недели, по умолчанию `MONDAY`.
-- `SCHEDULE_DATE_LOCALE` — locale для строковых тегов без явного формата, по умолчанию `en`.
-- `SCHEDULE_RESET_TRIGGER_DAY` — день еженедельного запуска, по умолчанию `MONDAY`.
-- `SCHEDULE_RESET_TRIGGER_HOUR` — час еженедельного запуска, по умолчанию `0`.
+- `SCHEDULE_RESET_TRIGGER_HOUR` — час еженедельного запуска, по умолчанию `0`. День запуска всегда совпадает с `SCHEDULE_WEEK_START_DAY`.
 
 Функции Apps Script:
 
