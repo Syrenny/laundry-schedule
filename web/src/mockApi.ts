@@ -113,11 +113,11 @@ export const mockApi: ApiClient = {
       reservationId: `mock-${Date.now()}`,
       occupantLabel: 'Вы'
     });
-    return wait(makeSchedule());
+    return wait(makeSchedule(request.weekStart));
   },
-  cancelReservation: async (reservationId: string) => {
+  cancelReservation: async (reservationId: string, weekStart: string) => {
     reservations = reservations.filter((slot) => slot.reservationId !== reservationId);
-    return wait(makeSchedule());
+    return wait(makeSchedule(weekStart));
   },
   getCurrentUserProbe: () => wait({ activeUserEmail: 'student@example.com', effectiveUserEmail: 'owner@example.com' }),
   sendTestTelegramNotification: () => wait({ status: 'sent' }),

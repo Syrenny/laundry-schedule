@@ -75,7 +75,8 @@ export default function App() {
       const next = await api.reserveSlot({
         date: slot.date,
         startTime: slot.startTime,
-        machineId: slot.machineId
+        machineId: slot.machineId,
+        weekStart: schedule?.weekStart || slot.date
       });
       setSchedule(next);
       setSnackbar('Запись создана');
@@ -91,7 +92,7 @@ export default function App() {
     if (!slot.reservationId) return;
     setLoading(true);
     try {
-      const next = await api.cancelReservation(slot.reservationId);
+      const next = await api.cancelReservation(slot.reservationId, schedule?.weekStart || slot.date);
       setSchedule(next);
       setSnackbar('Запись отменена');
     } catch (cancelError) {

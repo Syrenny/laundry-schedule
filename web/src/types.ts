@@ -40,6 +40,7 @@ export type ReserveRequest = {
   date: string;
   startTime: string;
   machineId: string;
+  weekStart: string;
 };
 
 export type ApiEnvelope<T> =
@@ -49,7 +50,7 @@ export type ApiEnvelope<T> =
 export type ApiClient = {
   getWeekSchedule(weekStart?: string): Promise<WeekSchedule>;
   reserveSlot(request: ReserveRequest): Promise<WeekSchedule>;
-  cancelReservation(reservationId: string): Promise<WeekSchedule>;
+  cancelReservation(reservationId: string, weekStart: string): Promise<WeekSchedule>;
   getCurrentUserProbe(): Promise<unknown>;
   sendTestTelegramNotification(): Promise<unknown>;
   throwTestErrorForLogging(): Promise<unknown>;

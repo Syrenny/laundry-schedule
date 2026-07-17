@@ -37,7 +37,8 @@ function callServer<T>(name: string, ...args: unknown[]): Promise<T> {
 const googleScriptApi: ApiClient = {
   getWeekSchedule: (weekStart?: string) => callServer<WeekSchedule>('getWeekSchedule', weekStart),
   reserveSlot: (request: ReserveRequest) => callServer<WeekSchedule>('reserveSlot', request),
-  cancelReservation: (reservationId: string) => callServer<WeekSchedule>('cancelReservation', reservationId),
+  cancelReservation: (reservationId: string, weekStart: string) =>
+    callServer<WeekSchedule>('cancelReservation', reservationId, weekStart),
   getCurrentUserProbe: () => callServer('getCurrentUserProbe'),
   sendTestTelegramNotification: () => callServer('sendTestTelegramNotification'),
   throwTestErrorForLogging: () => callServer('throwTestErrorForLogging')

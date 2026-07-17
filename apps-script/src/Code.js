@@ -28,9 +28,9 @@ function reserveSlot(request) {
   });
 }
 
-function cancelReservation(reservationId) {
+function cancelReservation(reservationId, weekStartIso) {
   return LaundryApi.handle('cancelReservation', function () {
-    return LaundryReservations.cancelReservation(reservationId);
+    return LaundryReservations.cancelReservation(reservationId, weekStartIso);
   });
 }
 

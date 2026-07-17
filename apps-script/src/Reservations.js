@@ -3,6 +3,13 @@ var LaundryReservations = (function () {
     return Utilities.formatDate(date, 'UTC', 'yyyy-MM-dd');
   }
 
+  function normalizeStoredDate(value, timezone) {
+    if (value instanceof Date) {
+      return Utilities.formatDate(value, timezone, 'yyyy-MM-dd');
+    }
+    return String(value || '').trim();
+  }
+
   function parseIsoDate(value) {
     var parts = String(value).split('-').map(Number);
     if (parts.length !== 3 || parts.some(function (part) { return !Number.isFinite(part); })) {
@@ -93,7 +100,8 @@ var LaundryReservations = (function () {
     }
 
     var reservations = activeReservations().filter(function (reservation) {
-      return days.some(function (day) { return day.date === String(reservation.date); });
+      reservation.date = normalizeStoredDate(reservation.date, config.timezone);
+      return days.some(function (day) { return day.date === reservation.date; });
     });
 
     var reservationsBySlot = {};
@@ -167,7 +175,7 @@ var LaundryReservations = (function () {
 
       var active = activeReservations();
       var conflict = active.some(function (reservation) {
-        return String(reservation.date) === normalized.date
+        return normalizeStoredDate(reservation.date, config.timezone) === normalized.date
           && String(reservation.start_time) === normalized.start_time
           && String(reservation.machine_id) === normalized.machine_id;
       });
@@ -202,13 +210,13 @@ var LaundryReservations = (function () {
       };
       LaundrySheets.appendObject(LAUNDRY.SHEETS.RESERVATIONS, LAUNDRY.HEADERS.Reservations, row);
       LaundryAuditLog.record('reserve', 'reservation', id, normalized);
-      return getWeekSchedule(config.weekStart);
+      return getWeekSchedule(request.weekStart || config.weekStart);
     } finally {
       lock.releaseLock();
     }
   }
 
-  function cancelReservation(reservationId) {
+  function cancelReservation(reservationId, weekStartIso) {
     var lock = LockService.getScriptLock();
     if (!lock.tryLock(5000)) {
       throw new Error('Service is busy. Try again in a few seconds.');
@@ -233,7 +241,7 @@ var LaundryReservations = (function () {
         cancelled_at: now
       });
       LaundryAuditLog.record('cancel', 'reservation', reservationId, {});
-      return getWeekSchedule(config.weekStart);
+      return getWeekSchedule(weekStartIso || config.weekStart);
     } finally {
       lock.releaseLock();
     }
