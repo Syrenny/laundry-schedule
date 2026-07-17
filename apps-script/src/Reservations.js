@@ -10,6 +10,13 @@ var LaundryReservations = (function () {
     return String(value || '').trim();
   }
 
+  function normalizeStoredTime(value, timezone) {
+    if (value instanceof Date) {
+      return Utilities.formatDate(value, timezone, 'HH:mm');
+    }
+    return String(value || '').trim();
+  }
+
   function parseIsoDate(value) {
     var parts = String(value).split('-').map(Number);
     if (parts.length !== 3 || parts.some(function (part) { return !Number.isFinite(part); })) {
@@ -101,6 +108,7 @@ var LaundryReservations = (function () {
 
     var reservations = activeReservations().filter(function (reservation) {
       reservation.date = normalizeStoredDate(reservation.date, config.timezone);
+      reservation.start_time = normalizeStoredTime(reservation.start_time, config.timezone);
       return days.some(function (day) { return day.date === reservation.date; });
     });
 
@@ -176,7 +184,7 @@ var LaundryReservations = (function () {
       var active = activeReservations();
       var conflict = active.some(function (reservation) {
         return normalizeStoredDate(reservation.date, config.timezone) === normalized.date
-          && String(reservation.start_time) === normalized.start_time
+          && normalizeStoredTime(reservation.start_time, config.timezone) === normalized.start_time
           && String(reservation.machine_id) === normalized.machine_id;
       });
       if (conflict) {
