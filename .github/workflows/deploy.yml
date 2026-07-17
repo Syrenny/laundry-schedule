@@ -21,13 +21,12 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: web/package-lock.json
+          node-version: 24
+          package-manager-cache: false
 
       - name: Install sops
         uses: mdgreenwald/mozilla-sops-action@v1
@@ -41,29 +40,23 @@ jobs:
           sops -d secrets/clasp-staging.json.enc > .clasp.json
           sops -d secrets/clasprc.json.enc > ~/.clasprc.json
 
-      - name: Install dependencies
-        run: npm --prefix web ci
-
       - name: Build
         run: npm run build
-        env:
-          VITE_APP_ENV: staging
 
       - name: Push Apps Script
-        run: npx @google/clasp push --force
+        run: npx --yes @google/clasp push --force
 
   deploy-production:
     if: github.event_name == 'workflow_dispatch' && inputs.environment == 'production' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: web/package-lock.json
+          node-version: 24
+          package-manager-cache: false
 
       - name: Install sops
         uses: mdgreenwald/mozilla-sops-action@v1
@@ -77,13 +70,8 @@ jobs:
           sops -d secrets/clasp-production.json.enc > .clasp.json
           sops -d secrets/clasprc.json.enc > ~/.clasprc.json
 
-      - name: Install dependencies
-        run: npm --prefix web ci
-
       - name: Build
         run: npm run build
-        env:
-          VITE_APP_ENV: production
 
       - name: Push Apps Script
-        run: npx @google/clasp push --force
+        run: npx --yes @google/clasp push --force
