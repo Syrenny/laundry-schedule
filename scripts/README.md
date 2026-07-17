@@ -1,3 +1,3 @@
 # Scripts
 
-`build-apps-script.mjs` copies Apps Script source files into `apps-script/dist` and inlines the Vite build output into `index.html` so `clasp push` can deploy a self-contained Apps Script webapp.
+`build-apps-script.mjs` копирует исходные файлы Apps Script и single-file сборку Vite в `apps-script/dist`, чтобы `clasp push` мог развернуть самодостаточный Apps Script webapp. Перед запуском скрипта `vite-plugin-singlefile` встраивает JavaScript и CSS в `web/dist/index.html`.
