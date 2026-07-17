@@ -41,7 +41,7 @@ var LaundryConfig = (function () {
     var settings = readSettingsMap();
     var props = PropertiesService.getScriptProperties();
     var appEnv = props.getProperty('APP_ENV') || String(settings.app_env || 'staging');
-    var timezone = String(settings.timezone || 'Asia/Novosibirsk');
+    var timezone = LaundrySheets.getSpreadsheet().getSpreadsheetTimeZone();
     var config = {
       appEnv: appEnv,
       timezone: timezone,

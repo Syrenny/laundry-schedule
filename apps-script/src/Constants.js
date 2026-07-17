@@ -30,7 +30,6 @@ var LAUNDRY = {
     ErrorLog: ['timestamp', 'severity', 'context', 'actor_email', 'message', 'stack', 'details_json', 'telegram_status']
   },
   SETTINGS_DEFAULTS: [
-    ['timezone', 'Asia/Novosibirsk', 'Часовой пояс расписания'],
     ['week_start', '2026-07-20', 'Понедельник текущей недели по умолчанию'],
     ['slot_start_hour', '5', 'Первый час расписания'],
     ['slot_count', '24', 'Количество часовых слотов'],

@@ -3,16 +3,9 @@ var LaundryReservations = (function () {
     return Utilities.formatDate(date, 'UTC', 'yyyy-MM-dd');
   }
 
-  function normalizeStoredDate(value, timezone) {
+  function normalizeSheetValue(value, timezone, pattern) {
     if (value instanceof Date) {
-      return Utilities.formatDate(value, timezone, 'yyyy-MM-dd');
-    }
-    return String(value || '').trim();
-  }
-
-  function normalizeStoredTime(value, timezone) {
-    if (value instanceof Date) {
-      return Utilities.formatDate(value, timezone, 'HH:mm');
+      return Utilities.formatDate(value, timezone, pattern);
     }
     return String(value || '').trim();
   }
@@ -95,6 +88,7 @@ var LaundryReservations = (function () {
 
   function getWeekSchedule(weekStartIso) {
     var config = LaundryConfig.getConfig();
+    var sheetTimezone = LaundrySheets.getSpreadsheet().getSpreadsheetTimeZone();
     var user = LaundryUsers.resolveCurrentUser(config);
     var weekStart = weekStartIso || config.weekStart;
     var startDate = parseIsoDate(weekStart);
@@ -107,8 +101,8 @@ var LaundryReservations = (function () {
     }
 
     var reservations = activeReservations().filter(function (reservation) {
-      reservation.date = normalizeStoredDate(reservation.date, config.timezone);
-      reservation.start_time = normalizeStoredTime(reservation.start_time, config.timezone);
+      reservation.date = normalizeSheetValue(reservation.date, sheetTimezone, 'yyyy-MM-dd');
+      reservation.start_time = normalizeSheetValue(reservation.start_time, sheetTimezone, 'HH:mm');
       return days.some(function (day) { return day.date === reservation.date; });
     });
 
@@ -166,6 +160,7 @@ var LaundryReservations = (function () {
 
   function getReservationsProbe(weekStartIso) {
     var config = LaundryConfig.getConfig();
+    var sheetTimezone = LaundrySheets.getSpreadsheet().getSpreadsheetTimeZone();
     var weekStart = weekStartIso || config.weekStart;
     var startDate = parseIsoDate(weekStart);
     var dates = [];
@@ -183,8 +178,8 @@ var LaundryReservations = (function () {
       machineIds: machineIds,
       allowedTimes: allowedTimes,
       rows: activeReservations().slice(-10).map(function (reservation) {
-        var normalizedDate = normalizeStoredDate(reservation.date, config.timezone);
-        var normalizedTime = normalizeStoredTime(reservation.start_time, config.timezone);
+        var normalizedDate = normalizeSheetValue(reservation.date, sheetTimezone, 'yyyy-MM-dd');
+        var normalizedTime = normalizeSheetValue(reservation.start_time, sheetTimezone, 'HH:mm');
         var machineId = String(reservation.machine_id || '').trim();
         return {
           id: String(reservation.id || ''),
@@ -214,6 +209,7 @@ var LaundryReservations = (function () {
 
     try {
       var config = LaundryConfig.getConfig();
+      var sheetTimezone = LaundrySheets.getSpreadsheet().getSpreadsheetTimeZone();
       var user = LaundryUsers.resolveCurrentUser(config);
       var machines = enabledMachines();
       var machineAllowed = machines.some(function (machine) { return machine.id === normalized.machine_id; });
@@ -224,8 +220,8 @@ var LaundryReservations = (function () {
 
       var active = activeReservations();
       var conflict = active.some(function (reservation) {
-        return normalizeStoredDate(reservation.date, config.timezone) === normalized.date
-          && normalizeStoredTime(reservation.start_time, config.timezone) === normalized.start_time
+        return normalizeSheetValue(reservation.date, sheetTimezone, 'yyyy-MM-dd') === normalized.date
+          && normalizeSheetValue(reservation.start_time, sheetTimezone, 'HH:mm') === normalized.start_time
           && String(reservation.machine_id) === normalized.machine_id;
       });
       if (conflict) {

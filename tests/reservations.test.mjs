@@ -66,7 +66,10 @@ function makeRuntime(reservations) {
           : rows,
       appendObject: () => {},
       updateObjectById: () => {},
-      getSpreadsheet: () => ({ getName: () => 'Test Laundry' })
+      getSpreadsheet: () => ({
+        getName: () => 'Test Laundry',
+        getSpreadsheetTimeZone: () => 'Etc/GMT-8'
+      })
     },
     LaundryAuditLog: { record: () => {} },
     LockService: {
@@ -81,10 +84,10 @@ function makeRuntime(reservations) {
 
 function sheetReservation() {
   return {
-    id: 'reservation-1',
-    date: new Date('2026-07-19T17:00:00.000Z'),
-    start_time: new Date('2026-07-20T04:00:00.000Z'),
-    end_time: new Date('2026-07-20T05:00:00.000Z'),
+    id: '20260720_1100_haier_1_student_1',
+    date: new Date('2026-07-19T16:00:00.000Z'),
+    start_time: new Date('1899-12-30T03:00:00.000Z'),
+    end_time: new Date('1899-12-30T04:00:00.000Z'),
     machine_id: 'haier_1',
     email: 'student@example.com',
     display_name: 'Student',
@@ -101,7 +104,7 @@ test('getWeekSchedule сопоставляет Date из Google Sheets со сл
   );
 
   assert.equal(slot?.status, 'mine');
-  assert.equal(slot?.reservationId, 'reservation-1');
+  assert.equal(slot?.reservationId, '20260720_1100_haier_1_student_1');
 });
 
 test('reserveSlot обнаруживает конфликт, когда дата и время из Sheets имеют тип Date', () => {
@@ -127,12 +130,12 @@ test('getReservationsProbe объясняет сопоставление стр�
   assert.deepEqual(
     JSON.parse(JSON.stringify(probe.rows[0])),
     {
-      id: 'reservation-1',
+      id: '20260720_1100_haier_1_student_1',
       rawDateType: '[object Date]',
-      rawDate: 'Sun Jul 19 2026 17:00:00 GMT+0000 (Coordinated Universal Time)',
+      rawDate: 'Sun Jul 19 2026 16:00:00 GMT+0000 (Coordinated Universal Time)',
       normalizedDate: '2026-07-20',
       rawStartTimeType: '[object Date]',
-      rawStartTime: 'Mon Jul 20 2026 04:00:00 GMT+0000 (Coordinated Universal Time)',
+      rawStartTime: 'Sat Dec 30 1899 03:00:00 GMT+0000 (Coordinated Universal Time)',
       normalizedStartTime: '11:00',
       machineId: 'haier_1',
       status: 'active',
