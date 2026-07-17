@@ -19,8 +19,8 @@ async function inlineFrontend() {
   const css = await Promise.all(cssAssets.map(readAsset));
   const js = await Promise.all(jsAssets.map(readAsset));
   let template = await readFile(path.join(appsScriptSrc, 'templates', 'index.html'), 'utf8');
-  template = template.replace('<!-- APP_CSS -->', `<style>\n${css.join('\n')}\n</style>`);
-  template = template.replace('<!-- APP_JS -->', `<script>\n${js.join('\n')}\n</script>`);
+  template = template.replace('<!-- APP_CSS -->', () => `<style>\n${css.join('\n')}\n</style>`);
+  template = template.replace('<!-- APP_JS -->', () => `<script>\n${js.join('\n')}\n</script>`);
   await writeFile(path.join(appsScriptDist, 'index.html'), template);
 }
 

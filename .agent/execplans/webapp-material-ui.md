@@ -29,6 +29,7 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
 - [ ] Провести ручную проверку webapp на тестовой копии Google Sheets.
 - [x] (2026-07-17 14:07Z) Подготовлена инструкция в `README.md` для локального запуска, секретов, staging deploy, production deploy, runtime checks и readonly rollout.
 - [x] (2026-07-17 14:48Z) После повторной ошибки `Request contains an invalid argument` удалены explicit `oauthScopes` из manifest и добавлена диагностика `clasp` перед push в GitHub Actions.
+- [x] (2026-07-17 15:41Z) Исправлен build-скрипт инлайна frontend: `String.replace` заменен на function replacement, чтобы символы `$&` внутри minified JS не подменялись на placeholder.
 - [x] (2026-07-17 15:22Z) Выявлено, что `clasp run` требует API executable deployment и не подходит для bootstrap runtime secrets сразу после `clasp push`.
 - [x] (2026-07-17 15:31Z) Workflow упрощен: GitHub Actions больше не вызывает `setRuntimeSecretsFromJson`; runtime secrets настраиваются вручную в Apps Script Script Properties для каждого окружения.
 
@@ -44,6 +45,8 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
   Evidence: GitHub Actions вернул `Script function not found. Please make sure script is deployed as API executable.` Для `clasp run` нужен отдельный API executable deployment, которого нет после обычного `clasp push`.
 - Observation: `clasp push` в GitHub Actions возвращает неинформативную ошибку `Request contains an invalid argument`.
   Evidence: staging workflow падает на `npx @google/clasp push --force` до запуска runtime-кода. В ответ manifest упрощен: удалены explicit `oauthScopes`, потому что Apps Script может определить scopes автоматически, а неподдержанный scope в manifest может приводить к этой ошибке.
+- Observation: Белая страница staging webapp была вызвана повреждением minified JS при инлайне.
+  Evidence: в `apps-script/dist/index.html` встречались строки `<!-- APP_JS -->` внутри JS bundle. Причина: `String.replace` воспринимает `$&` в replacement string как специальную подстановку. После замены на callback replacement `rg -n "APP_JS|APP_CSS" apps-script/dist/index.html` ничего не находит, а `node --check` inline JS проходит.
 
 ## Decision Log
 
@@ -106,6 +109,8 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
 2026-07-17: README обновлен инструкциями для локальной разработки, сборки, `sops`-секретов, staging branch deploy, ручного production deploy и readonly rollout. Остается провести проверку в staging Google Sheets после настройки реальных секретов.
 
 2026-07-17: После повторной ошибки `clasp push` manifest упрощен: `webapp` уже был удален ранее, теперь удалены explicit `oauthScopes`. В workflow добавлен диагностический шаг перед push: проверка `.clasp.json`, печать manifest, список файлов и `clasp status` без раскрытия полного `scriptId`.
+
+2026-07-17: Исправлена причина белой страницы после открытия webapp. Build script теперь инлайнит CSS/JS через callback replacement, чтобы minified bundle не повреждался спец-подстановками JavaScript `String.replace`.
 
 ## Context and Orientation
 
@@ -516,6 +521,8 @@ Explicit `oauthScopes` в `appsscript.json` на MVP не задаются. Apps
 2026-07-17 / Codex: План обновлен под разные Apps Script projects для staging и production. `secrets/clasp.json.enc` заменен на `secrets/clasp-staging.json.enc` и `secrets/clasp-production.json.enc`.
 
 2026-07-17 / Codex: План обновлен по результатам падения `clasp push`: explicit `oauthScopes` удалены из manifest, добавлены local clasp debug instructions и diagnostic step в GitHub Actions.
+
+2026-07-17 / Codex: План обновлен по результатам white screen debug: причина была в повреждении inline JS из-за `$&` в replacement string; `scripts/build-apps-script.mjs` исправлен.
 
 2026-07-17 / Codex: План обновлен после ошибки `clasp run`: автоматическая запись runtime secrets через `setRuntimeSecretsFromJson` удалена из workflow; runtime secrets задаются вручную в Apps Script Script Properties.
 
