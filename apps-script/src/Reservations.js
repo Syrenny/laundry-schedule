@@ -1,5 +1,6 @@
 var LaundryReservations = (function () {
   var MACHINES_CACHE_SECONDS = 300;
+  var SCHEDULE_RESERVATIONS_CACHE_SECONDS = 30;
 
   function machinesCacheKey() {
     var props = PropertiesService.getScriptProperties();
@@ -15,6 +16,33 @@ var LaundryReservations = (function () {
   function writeCachedMachines(machines) {
     if (typeof CacheService === 'undefined') return;
     CacheService.getScriptCache().put(machinesCacheKey(), JSON.stringify(machines), MACHINES_CACHE_SECONDS);
+  }
+
+  function scheduleReservationsCacheKey() {
+    var props = PropertiesService.getScriptProperties();
+    return 'laundry_schedule_reservations_v1_' + (props.getProperty('APP_ENV') || 'staging');
+  }
+
+  function readCachedScheduleReservations(sheetTimezone) {
+    if (typeof CacheService === 'undefined') return null;
+    var cached = CacheService.getScriptCache().get(scheduleReservationsCacheKey());
+    if (!cached) return null;
+    var parsed = JSON.parse(cached);
+    return parsed.timezone === sheetTimezone ? parsed.rows : null;
+  }
+
+  function writeCachedScheduleReservations(sheetTimezone, reservations) {
+    if (typeof CacheService === 'undefined') return;
+    CacheService.getScriptCache().put(
+      scheduleReservationsCacheKey(),
+      JSON.stringify({ timezone: sheetTimezone, rows: reservations }),
+      SCHEDULE_RESERVATIONS_CACHE_SECONDS
+    );
+  }
+
+  function invalidateCachedScheduleReservations() {
+    if (typeof CacheService === 'undefined') return;
+    CacheService.getScriptCache().remove(scheduleReservationsCacheKey());
   }
 
   function createProfiler(operation) {
@@ -113,6 +141,20 @@ var LaundryReservations = (function () {
   function activeReservations() {
     return LaundrySheets.readObjects(LAUNDRY.SHEETS.RESERVATIONS)
       .filter(function (row) { return String(row.status || '').toLowerCase() === 'active'; });
+  }
+
+  function activeReservationsForSchedule(sheetTimezone) {
+    var cached = readCachedScheduleReservations(sheetTimezone);
+    if (cached) return cached;
+
+    var reservations = activeReservations().map(function (reservation) {
+      var normalized = Object.assign({}, reservation);
+      normalized.date = normalizeSheetValue(reservation.date, sheetTimezone, 'yyyy-MM-dd');
+      normalized.start_time = normalizeSheetValue(reservation.start_time, sheetTimezone, 'HH:mm');
+      return normalized;
+    });
+    writeCachedScheduleReservations(sheetTimezone, reservations);
+    return reservations;
   }
 
   function makeReservationId(user, request) {
@@ -215,7 +257,7 @@ var LaundryReservations = (function () {
       var weekStart = weekStartIso || config.weekStart;
       var machines = enabledMachines();
       profile.mark('machines');
-      var active = activeReservations();
+      var active = activeReservationsForSchedule(sheetTimezone);
       profile.mark('reservations');
       var schedule = buildWeekSchedule(weekStart, config, sheetTimezone, user, machines, active);
       profile.mark('build');
@@ -337,6 +379,7 @@ var LaundryReservations = (function () {
         row,
         ['date', 'start_time', 'end_time']
       );
+      invalidateCachedScheduleReservations();
       profile.mark('reservationWrite');
       LaundryAuditLog.record('reserve', 'reservation', id, normalized);
       profile.mark('auditWrite');
@@ -360,15 +403,26 @@ var LaundryReservations = (function () {
   }
 
   function cancelReservation(reservationId, weekStartIso) {
+    var profile = createProfiler('cancelReservation');
     var lock = LockService.getScriptLock();
-    if (!lock.tryLock(5000)) {
+    var acquired = lock.tryLock(5000);
+    profile.mark('lock');
+    if (!acquired) {
+      profile.finish('busy');
       throw new Error('Service is busy. Try again in a few seconds.');
     }
 
     try {
       var config = LaundryConfig.getConfig();
+      profile.mark('config');
+      var sheetTimezone = LaundrySheets.getSpreadsheet().getSpreadsheetTimeZone();
+      profile.mark('spreadsheetTimezone');
       var user = LaundryUsers.resolveCurrentUser(config);
+      profile.mark('user');
+      var machines = enabledMachines();
+      profile.mark('machines');
       var reservations = activeReservations();
+      profile.mark('reservations');
       var reservation = reservations.find(function (row) {
         return String(row.id) === String(reservationId);
       });
@@ -383,8 +437,24 @@ var LaundryReservations = (function () {
         updated_at: now,
         cancelled_at: now
       });
+      invalidateCachedScheduleReservations();
+      profile.mark('reservationWrite');
       LaundryAuditLog.record('cancel', 'reservation', reservationId, {});
-      return getWeekSchedule(weekStartIso || config.weekStart);
+      profile.mark('auditWrite');
+      var schedule = buildWeekSchedule(
+        weekStartIso || config.weekStart,
+        config,
+        sheetTimezone,
+        user,
+        machines,
+        reservations.filter(function (row) { return String(row.id) !== String(reservationId); })
+      );
+      profile.mark('build');
+      profile.finish('ok');
+      return schedule;
+    } catch (error) {
+      profile.finish('error');
+      throw error;
     } finally {
       lock.releaseLock();
     }

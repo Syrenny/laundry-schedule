@@ -90,7 +90,8 @@ function makeRuntime(reservations, metrics = {}) {
       ? {
           getScriptCache: () => ({
             get: (key) => cache.get(key) || null,
-            put: (key, value) => cache.set(key, value)
+            put: (key, value) => cache.set(key, value),
+            remove: (key) => cache.delete(key)
           })
         }
       : undefined,
@@ -179,7 +180,7 @@ test('reserveSlot строит ответ без повторного чтени
   ]);
 });
 
-test('getWeekSchedule кеширует Machines, но перечитывает Reservations', () => {
+test('getWeekSchedule кеширует справочники и Reservations для расписания', () => {
   const metrics = { cache: true };
   const api = makeRuntime([], metrics);
 
@@ -187,7 +188,52 @@ test('getWeekSchedule кеширует Machines, но перечитывает R
   api.getWeekSchedule('2026-07-20');
 
   assert.equal(metrics.reads.Machines, 1);
-  assert.equal(metrics.reads.Reservations, 2);
+  assert.equal(metrics.reads.Reservations, 1);
+});
+
+test('reserveSlot сбрасывает кеш Reservations для расписания', () => {
+  const metrics = { cache: true };
+  const api = makeRuntime([], metrics);
+
+  api.getWeekSchedule('2026-07-20');
+  api.getWeekSchedule('2026-07-20');
+  api.reserveSlot({
+    date: '2026-07-20',
+    startTime: '11:00',
+    machineId: 'haier_1',
+    weekStart: '2026-07-20'
+  });
+  api.getWeekSchedule('2026-07-20');
+
+  assert.equal(metrics.reads.Machines, 1);
+  assert.equal(metrics.reads.Reservations, 3);
+});
+
+test('cancelReservation строит ответ без повторного чтения расписания', () => {
+  const metrics = {};
+  const api = makeRuntime([sheetReservation()], metrics);
+  const schedule = api.cancelReservation('20260720_1100_haier_1_student_1', '2026-07-20');
+  const slot = schedule.slots.find(
+    (item) => item.date === '2026-07-20' && item.startTime === '11:00' && item.machineId === 'haier_1'
+  );
+
+  assert.equal(slot?.status, 'free');
+  assert.equal(metrics.reads.Machines, 1);
+  assert.equal(metrics.reads.Reservations, 1);
+  const profile = JSON.parse(metrics.logs.find((line) => line.startsWith('PERF ')).slice(5));
+  assert.equal(profile.operation, 'cancelReservation');
+  assert.equal(profile.status, 'ok');
+  assert.deepEqual(Object.keys(profile.phasesMs), [
+    'lock',
+    'config',
+    'spreadsheetTimezone',
+    'user',
+    'machines',
+    'reservations',
+    'reservationWrite',
+    'auditWrite',
+    'build'
+  ]);
 });
 
 test('getReservationsProbe объясняет сопоставление строки со слотом', () => {
