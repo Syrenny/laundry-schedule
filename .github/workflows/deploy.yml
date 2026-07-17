@@ -61,7 +61,7 @@ jobs:
         run: npx @google/clasp run setRuntimeSecretsFromJson --params "$(cat runtime-params.json)"
 
   deploy-production:
-    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'production'
+    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'production' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
     steps:
