@@ -28,6 +28,7 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
 - [x] (2026-07-17 14:05Z) Добавлен GitHub Actions deploy через `clasp` для staging branch и ручного production deploy.
 - [ ] Провести ручную проверку webapp на тестовой копии Google Sheets.
 - [x] (2026-07-17 14:07Z) Подготовлена инструкция в `README.md` для локального запуска, секретов, staging deploy, production deploy, runtime checks и readonly rollout.
+- [x] (2026-07-17 14:48Z) После повторной ошибки `Request contains an invalid argument` удалены explicit `oauthScopes` из manifest и добавлена диагностика `clasp` перед push в GitHub Actions.
 
 ## Surprises & Discoveries
 
@@ -39,6 +40,8 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
   Evidence: `npm run build` завершился успешно; Vite output показал `dist/assets/index-CKPXchSf.js 388.13 kB │ gzip: 121.37 kB`.
 - Observation: Для автоматической записи runtime secrets через `clasp run setRuntimeSecretsFromJson` нужен admin-пользователь в листе `Users`.
   Evidence: функция `setRuntimeSecretsFromJson` вызывает `LaundryUsers.assertAdmin(actor)`, чтобы не оставлять публичную server function для перезаписи Telegram token и spreadsheet ids.
+- Observation: `clasp push` в GitHub Actions возвращает неинформативную ошибку `Request contains an invalid argument`.
+  Evidence: staging workflow падает на `npx @google/clasp push --force` до запуска runtime-кода. В ответ manifest упрощен: удалены explicit `oauthScopes`, потому что Apps Script может определить scopes автоматически, а неподдержанный scope в manifest может приводить к этой ошибке.
 
 ## Decision Log
 
@@ -86,11 +89,17 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
   Rationale: Один `scriptId` для обоих окружений создает риск случайно перезаписать production тестовым деплоем. Разные `secrets/clasp-staging.json.enc` и `secrets/clasp-production.json.enc` физически разделяют deployments и URL webapp.
   Date/Author: 2026-07-17 / Codex
 
+- Decision: Не задавать `oauthScopes` явно в `appsscript.json` на MVP.
+  Rationale: Ручной список scopes повышает риск ошибки manifest при `clasp push`; Apps Script умеет вычислять scopes по используемым сервисам. Явные scopes можно вернуть позже, когда staging push стабилен и список подтвержден.
+  Date/Author: 2026-07-17 / Codex
+
 ## Outcomes & Retrospective
 
 2026-07-17: Реализован первый MVP-каркас. Есть Apps Script backend, React/Vite/MUI frontend, build pipeline, `sops` templates, GitHub Actions deploy workflow, локальный mock mode, ErrorLog и Telegram notification code. Локальная сборка проходит. Ручная проверка в реальном Apps Script deployment еще не выполнена, потому что для нее нужны реальные Google credentials, `scriptId`, staging Google Sheet и `sops` secrets.
 
 2026-07-17: README обновлен инструкциями для локальной разработки, сборки, `sops`-секретов, staging branch deploy, ручного production deploy и readonly rollout. Остается провести проверку в staging Google Sheets после настройки реальных секретов.
+
+2026-07-17: После повторной ошибки `clasp push` manifest упрощен: `webapp` уже был удален ранее, теперь удалены explicit `oauthScopes`. В workflow добавлен диагностический шаг перед push: проверка `.clasp.json`, печать manifest, список файлов и `clasp status` без раскрытия полного `scriptId`.
 
 ## Context and Orientation
 
@@ -481,6 +490,8 @@ Apps Script dependencies:
     PropertiesService опционально для технических версий миграций, но не для пользовательских настроек.
     UrlFetchApp для отправки Telegram-уведомлений через bot API.
 
+Explicit `oauthScopes` в `appsscript.json` на MVP не задаются. Apps Script должен определить scopes автоматически по `SpreadsheetApp`, `UrlFetchApp`, `PropertiesService`, `Session` и другим используемым сервисам. Если позже потребуется строгий allowlist scopes, его нужно возвращать отдельным изменением после успешного staging push.
+
 `CacheService` не должен быть источником истины. Его можно использовать только для ускорения `getWeekSchedule`; после успешной записи или отмены кэш нужно сбрасывать или менять `schedule_version`.
 
 `PropertiesService` должен хранить runtime-секреты `TELEGRAM_BOT_TOKEN`, `STAGING_TELEGRAM_CHAT_ID`, `PRODUCTION_TELEGRAM_CHAT_ID`, `STAGING_SPREADSHEET_ID`, `PRODUCTION_SPREADSHEET_ID` и `APP_ENV`, потому что эти значения не должны быть видны в листе `Settings`. Лист `Settings` хранит только несекретные переключатели вроде `telegram_notifications_enabled`, `telegram_min_severity` и человекочитаемый `app_env`.
@@ -498,3 +509,5 @@ Apps Script dependencies:
 2026-07-17 / Codex: План обновлен под веточную модель деплоя: staging deploy запускается из ветки `staging`, force-push в эту ветку допустим для тестирования, production deploy остается только ручным.
 
 2026-07-17 / Codex: План обновлен под разные Apps Script projects для staging и production. `secrets/clasp.json.enc` заменен на `secrets/clasp-staging.json.enc` и `secrets/clasp-production.json.enc`.
+
+2026-07-17 / Codex: План обновлен по результатам падения `clasp push`: explicit `oauthScopes` удалены из manifest, добавлены local clasp debug instructions и diagnostic step в GitHub Actions.
