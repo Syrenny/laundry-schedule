@@ -253,7 +253,12 @@ var LaundryReservations = (function () {
         cancelled_at: '',
         note: ''
       };
-      LaundrySheets.appendObject(LAUNDRY.SHEETS.RESERVATIONS, LAUNDRY.HEADERS.Reservations, row);
+      LaundrySheets.appendObject(
+        LAUNDRY.SHEETS.RESERVATIONS,
+        LAUNDRY.HEADERS.Reservations,
+        row,
+        ['date', 'start_time', 'end_time']
+      );
       LaundryAuditLog.record('reserve', 'reservation', id, normalized);
       return getWeekSchedule(request.weekStart || config.weekStart);
     } finally {

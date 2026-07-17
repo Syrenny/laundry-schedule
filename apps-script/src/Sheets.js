@@ -86,13 +86,20 @@ var LaundrySheets = (function () {
       });
   }
 
-  function appendObject(sheetName, headers, object) {
+  function appendObject(sheetName, headers, object, textHeaders) {
     var sheet = getOrCreateSheet(sheetName);
     ensureHeader(sheet, headers);
     var row = headers.map(function (header) {
       return Object.prototype.hasOwnProperty.call(object, header) ? object[header] : '';
     });
-    sheet.getRange(sheet.getLastRow() + 1, 1, 1, row.length).setValues([row]);
+    var rowNumber = sheet.getLastRow() + 1;
+    (textHeaders || []).forEach(function (header) {
+      var columnIndex = headers.indexOf(header);
+      if (columnIndex !== -1) {
+        sheet.getRange(rowNumber, columnIndex + 1).setNumberFormat('@');
+      }
+    });
+    sheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
   }
 
   function updateObjectById(sheetName, id, patch) {
