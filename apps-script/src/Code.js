@@ -47,11 +47,3 @@ function throwTestErrorForLogging() {
     throw new Error('Test error for ErrorLog and Telegram notification');
   });
 }
-
-function setRuntimeSecretsFromJson(jsonText) {
-  return LaundryApi.handle('setRuntimeSecretsFromJson', function () {
-    var parsed = JSON.parse(jsonText);
-    PropertiesService.getScriptProperties().setProperties(parsed, true);
-    return { ok: true, keys: Object.keys(parsed).sort() };
-  });
-}
