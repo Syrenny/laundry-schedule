@@ -20,6 +20,7 @@ async function copyAppsScriptFiles() {
   const preferredOrder = [
     'Constants.js',
     'Sheets.js',
+    'WeeklyReset.js',
     'Config.js',
     'Users.js',
     'Notifications.js',

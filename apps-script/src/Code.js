@@ -10,6 +10,24 @@ function setupSheets() {
   });
 }
 
+function resetWeeklySchedule(referenceDate) {
+  return LaundryApi.handle('resetWeeklySchedule', function () {
+    return LaundryWeeklyReset.resetWeeklySchedule(referenceDate);
+  });
+}
+
+function installWeeklyResetTrigger() {
+  return LaundryApi.handle('installWeeklyResetTrigger', function () {
+    return LaundryWeeklyReset.installWeeklyResetTrigger();
+  });
+}
+
+function removeWeeklyResetTriggers() {
+  return LaundryApi.handle('removeWeeklyResetTriggers', function () {
+    return LaundryWeeklyReset.removeWeeklyResetTriggers();
+  });
+}
+
 function getCurrentUserProbe() {
   return LaundryApi.handle('getCurrentUserProbe', function () {
     return LaundryUsers.getCurrentUserProbe();
