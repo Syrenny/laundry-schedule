@@ -1,5 +1,9 @@
 var LaundrySheets = (function () {
+  var spreadsheet;
+
   function getSpreadsheet() {
+    if (spreadsheet) return spreadsheet;
+
     var props = PropertiesService.getScriptProperties();
     var env = props.getProperty('APP_ENV') || 'staging';
     var spreadsheetId = env === 'production'
@@ -7,14 +11,15 @@ var LaundrySheets = (function () {
       : props.getProperty('STAGING_SPREADSHEET_ID');
 
     if (spreadsheetId) {
-      return SpreadsheetApp.openById(spreadsheetId);
+      spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+      return spreadsheet;
     }
 
-    var active = SpreadsheetApp.getActiveSpreadsheet();
-    if (!active) {
+    spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    if (!spreadsheet) {
       throw new Error('Spreadsheet id is not configured and no active spreadsheet is available');
     }
-    return active;
+    return spreadsheet;
   }
 
   function getOrCreateSheet(name) {
@@ -93,10 +98,17 @@ var LaundrySheets = (function () {
       return Object.prototype.hasOwnProperty.call(object, header) ? object[header] : '';
     });
     var rowNumber = sheet.getLastRow() + 1;
-    (textHeaders || []).forEach(function (header) {
-      var columnIndex = headers.indexOf(header);
-      if (columnIndex !== -1) {
-        sheet.getRange(rowNumber, columnIndex + 1).setNumberFormat('@');
+    var textColumns = (textHeaders || [])
+      .map(function (header) { return headers.indexOf(header) + 1; })
+      .filter(function (column) { return column > 0; })
+      .sort(function (a, b) { return a - b; });
+    var groupStart = 0;
+    textColumns.forEach(function (column, index) {
+      var nextColumn = textColumns[index + 1];
+      if (!groupStart) groupStart = column;
+      if (nextColumn !== column + 1) {
+        sheet.getRange(rowNumber, groupStart, 1, column - groupStart + 1).setNumberFormat('@');
+        groupStart = 0;
       }
     });
     sheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);

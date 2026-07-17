@@ -29,7 +29,7 @@ function formatDate(date, timezone, pattern) {
   throw new Error(`Unsupported date pattern in test: ${pattern}`);
 }
 
-function makeRuntime(reservations) {
+function makeRuntime(reservations, metrics = {}) {
   const rows = reservations.map((row) => ({ ...row }));
   const context = {
     Date,
@@ -60,11 +60,16 @@ function makeRuntime(reservations) {
       })
     },
     LaundrySheets: {
-      readObjects: (sheet) =>
-        sheet === 'Machines'
+      readObjects: (sheet) => {
+        metrics.reads ??= {};
+        metrics.reads[sheet] = (metrics.reads[sheet] || 0) + 1;
+        return sheet === 'Machines'
           ? [{ id: 'haier_1', name: 'Haier 1', enabled: true, sort_order: 1 }]
-          : rows,
-      appendObject: () => {},
+          : rows;
+      },
+      appendObject: () => {
+        metrics.appends = (metrics.appends || 0) + 1;
+      },
       updateObjectById: () => {},
       getSpreadsheet: () => ({
         getName: () => 'Test Laundry',
@@ -120,6 +125,25 @@ test('reserveSlot обнаруживает конфликт, когда дата
       }),
     /Slot is already occupied/
   );
+});
+
+test('reserveSlot строит ответ без повторного чтения листов', () => {
+  const metrics = {};
+  const api = makeRuntime([], metrics);
+  const schedule = api.reserveSlot({
+    date: '2026-07-20',
+    startTime: '11:00',
+    machineId: 'haier_1',
+    weekStart: '2026-07-20'
+  });
+  const slot = schedule.slots.find(
+    (item) => item.date === '2026-07-20' && item.startTime === '11:00' && item.machineId === 'haier_1'
+  );
+
+  assert.equal(slot?.status, 'mine');
+  assert.equal(metrics.reads.Machines, 1);
+  assert.equal(metrics.reads.Reservations, 1);
+  assert.equal(metrics.appends, 1);
 });
 
 test('getReservationsProbe объясняет сопоставление строки со слотом', () => {

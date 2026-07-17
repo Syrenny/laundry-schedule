@@ -86,23 +86,20 @@ var LaundryReservations = (function () {
     };
   }
 
-  function getWeekSchedule(weekStartIso) {
-    var config = LaundryConfig.getConfig();
-    var sheetTimezone = LaundrySheets.getSpreadsheet().getSpreadsheetTimeZone();
-    var user = LaundryUsers.resolveCurrentUser(config);
-    var weekStart = weekStartIso || config.weekStart;
+  function buildWeekSchedule(weekStart, config, sheetTimezone, user, machines, active) {
     var startDate = parseIsoDate(weekStart);
-    var machines = enabledMachines();
-    var machineIds = machines.map(function (machine) { return machine.id; });
     var days = [];
     for (var day = 0; day < 7; day += 1) {
       var date = isoDate(addDays(startDate, day));
       days.push({ date: date, label: date });
     }
 
-    var reservations = activeReservations().filter(function (reservation) {
-      reservation.date = normalizeSheetValue(reservation.date, sheetTimezone, 'yyyy-MM-dd');
-      reservation.start_time = normalizeSheetValue(reservation.start_time, sheetTimezone, 'HH:mm');
+    var reservations = active.map(function (reservation) {
+      var normalized = Object.assign({}, reservation);
+      normalized.date = normalizeSheetValue(reservation.date, sheetTimezone, 'yyyy-MM-dd');
+      normalized.start_time = normalizeSheetValue(reservation.start_time, sheetTimezone, 'HH:mm');
+      return normalized;
+    }).filter(function (reservation) {
       return days.some(function (day) { return day.date === reservation.date; });
     });
 
@@ -156,6 +153,16 @@ var LaundryReservations = (function () {
       slots: slots,
       scheduleVersion: config.scheduleVersion
     };
+  }
+
+  function getWeekSchedule(weekStartIso) {
+    var config = LaundryConfig.getConfig();
+    var sheetTimezone = LaundrySheets.getSpreadsheet().getSpreadsheetTimeZone();
+    var user = LaundryUsers.resolveCurrentUser(config);
+    var weekStart = weekStartIso || config.weekStart;
+    var machines = enabledMachines();
+    var active = activeReservations();
+    return buildWeekSchedule(weekStart, config, sheetTimezone, user, machines, active);
   }
 
   function getReservationsProbe(weekStartIso) {
@@ -260,7 +267,14 @@ var LaundryReservations = (function () {
         ['date', 'start_time', 'end_time']
       );
       LaundryAuditLog.record('reserve', 'reservation', id, normalized);
-      return getWeekSchedule(request.weekStart || config.weekStart);
+      return buildWeekSchedule(
+        request.weekStart || config.weekStart,
+        config,
+        sheetTimezone,
+        user,
+        machines,
+        active.concat([row])
+      );
     } finally {
       lock.releaseLock();
     }

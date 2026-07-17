@@ -5,20 +5,10 @@ import vm from 'node:vm';
 
 const sheetsSource = readFileSync(new URL('../apps-script/src/Sheets.js', import.meta.url), 'utf8');
 
-test('appendObject задаёт plain text до записи календарных полей', () => {
-  const headers = ['id', 'date', 'start_time', 'end_time', 'created_at'];
-  const events = [];
-  const sheet = {
-    getLastRow: () => 1,
-    getRange: (row, column, height, width) => ({
-      getValues: () => [headers],
-      setNumberFormat: (format) => events.push({ type: 'format', row, column, format }),
-      setValues: (values) => events.push({ type: 'values', row, column, height, width, values })
-    })
-  };
-  const spreadsheet = {
-    getSheetByName: () => sheet,
-    insertSheet: () => sheet
+function makeRuntime(overrides = {}) {
+  const spreadsheet = overrides.spreadsheet || {
+    getSheetByName: () => null,
+    insertSheet: () => null
   };
   const context = {
     PropertiesService: {
@@ -27,7 +17,7 @@ test('appendObject задаёт plain text до записи календарн�
       })
     },
     SpreadsheetApp: {
-      openById: () => spreadsheet,
+      openById: overrides.openById || (() => spreadsheet),
       getActiveSpreadsheet: () => spreadsheet
     },
     LAUNDRY: { HEADERS: {}, SHEETS: {} },
@@ -36,7 +26,42 @@ test('appendObject задаёт plain text до записи календарн�
 
   vm.createContext(context);
   vm.runInContext(sheetsSource, context);
-  context.LaundrySheets.appendObject(
+  return context.LaundrySheets;
+}
+
+test('getSpreadsheet повторно использует открытый spreadsheet', () => {
+  let openCount = 0;
+  const spreadsheet = {};
+  const sheets = makeRuntime({
+    spreadsheet,
+    openById: () => {
+      openCount += 1;
+      return spreadsheet;
+    }
+  });
+
+  assert.equal(sheets.getSpreadsheet(), spreadsheet);
+  assert.equal(sheets.getSpreadsheet(), spreadsheet);
+  assert.equal(openCount, 1);
+});
+
+test('appendObject задаёт plain text до записи календарных полей', () => {
+  const headers = ['id', 'date', 'start_time', 'end_time', 'created_at'];
+  const events = [];
+  const sheet = {
+    getLastRow: () => 1,
+    getRange: (row, column, height, width) => ({
+      getValues: () => [headers],
+      setNumberFormat: (format) => events.push({ type: 'format', row, column, height, width, format }),
+      setValues: (values) => events.push({ type: 'values', row, column, height, width, values })
+    })
+  };
+  const spreadsheet = {
+    getSheetByName: () => sheet,
+    insertSheet: () => sheet
+  };
+  const sheets = makeRuntime({ spreadsheet });
+  sheets.appendObject(
     'Reservations',
     headers,
     {
@@ -49,14 +74,10 @@ test('appendObject задаёт plain text до записи календарн�
     ['date', 'start_time', 'end_time']
   );
 
-  assert.deepEqual(events.slice(0, 3), [
-    { type: 'format', row: 2, column: 2, format: '@' },
-    { type: 'format', row: 2, column: 3, format: '@' },
-    { type: 'format', row: 2, column: 4, format: '@' }
-  ]);
-  assert.equal(events[3].type, 'values');
-  assert.equal(events[3].values[0][1], '2026-07-20');
-  assert.equal(events[3].values[0][2], '05:00');
-  assert.equal(events[3].values[0][3], '06:00');
-  assert.ok(events[3].values[0][4] instanceof Date);
+  assert.deepEqual(events[0], { type: 'format', row: 2, column: 2, height: 1, width: 3, format: '@' });
+  assert.equal(events[1].type, 'values');
+  assert.equal(events[1].values[0][1], '2026-07-20');
+  assert.equal(events[1].values[0][2], '05:00');
+  assert.equal(events[1].values[0][3], '06:00');
+  assert.ok(events[1].values[0][4] instanceof Date);
 });
