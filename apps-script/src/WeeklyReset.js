@@ -2,7 +2,6 @@ var LaundryWeeklyReset = (function () {
   var DEFAULT_TEMPLATE_SHEET_NAME = 'ScheduleTemplate';
   var DEFAULT_TARGET_SHEET_NAMES = ['Haier 1', 'Haier 2', 'Haier 3', 'Haier 4'];
   var DEFAULT_WEEK_START_DAY = 'MONDAY';
-  var DEFAULT_TRIGGER_DAY = 'MONDAY';
   var DEFAULT_TRIGGER_HOUR = 0;
   var DEFAULT_DATE_LOCALE = 'en';
   var RESET_FUNCTION_NAME = 'resetWeeklySchedule';
@@ -63,7 +62,6 @@ var LaundryWeeklyReset = (function () {
       targetSheetNames: targetSheetNames(),
       weekStartDay: normalizedWeekDay(property('SCHEDULE_WEEK_START_DAY', DEFAULT_WEEK_START_DAY), DEFAULT_WEEK_START_DAY),
       dateLocale: property('SCHEDULE_DATE_LOCALE', DEFAULT_DATE_LOCALE),
-      triggerDay: normalizedWeekDay(property('SCHEDULE_RESET_TRIGGER_DAY', DEFAULT_TRIGGER_DAY), DEFAULT_TRIGGER_DAY),
       triggerHour: numberProperty('SCHEDULE_RESET_TRIGGER_HOUR', DEFAULT_TRIGGER_HOUR, 0, 23)
     };
   }
@@ -218,7 +216,7 @@ var LaundryWeeklyReset = (function () {
   function installWeeklyResetTrigger() {
     var options = config();
     var removed = removeWeeklyResetTriggers().removed;
-    var weekDayName = SCRIPT_APP_WEEK_DAYS[options.triggerDay];
+    var weekDayName = SCRIPT_APP_WEEK_DAYS[options.weekStartDay];
     ScriptApp.newTrigger(RESET_FUNCTION_NAME)
       .timeBased()
       .onWeekDay(ScriptApp.WeekDay[weekDayName])
@@ -228,7 +226,7 @@ var LaundryWeeklyReset = (function () {
       removed: removed,
       installed: true,
       functionName: RESET_FUNCTION_NAME,
-      weekDay: options.triggerDay,
+      weekDay: options.weekStartDay,
       hour: options.triggerHour
     };
   }

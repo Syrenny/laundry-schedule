@@ -8,14 +8,18 @@ const weeklyResetSource = readFileSync(
   'utf8'
 );
 
-function makeApi(overrides = {}) {
+function makeRuntime(overrides = {}) {
   const context = {
     Date,
     ...overrides
   };
   vm.createContext(context);
   vm.runInContext(weeklyResetSource, context);
-  return context.LaundryWeeklyReset._test;
+  return context.LaundryWeeklyReset;
+}
+
+function makeApi(overrides = {}) {
+  return makeRuntime(overrides)._test;
 }
 
 test('startOfWeek возвращает понедельник текущей недели', () => {
@@ -72,4 +76,51 @@ test('replaceDateTagsInValues не меняет обычные значения'
   assert.equal(result[0][0], 'plain text');
   assert.equal(result[0][1], 42);
   assert.equal(result[0][2], originalDate);
+});
+
+test('installWeeklyResetTrigger использует день начала недели', () => {
+  const events = [];
+  const api = makeRuntime({
+    PropertiesService: {
+      getScriptProperties: () => ({
+        getProperty: (key) => ({
+          SCHEDULE_WEEK_START_DAY: 'FRIDAY',
+          SCHEDULE_RESET_TRIGGER_HOUR: '22'
+        })[key] || null
+      })
+    },
+    ScriptApp: {
+      WeekDay: { FRIDAY: 'FRIDAY' },
+      getProjectTriggers: () => [
+        {
+          getHandlerFunction: () => 'resetWeeklySchedule'
+        },
+        {
+          getHandlerFunction: () => 'otherFunction'
+        }
+      ],
+      deleteTrigger: (trigger) => events.push({ type: 'delete', handler: trigger.getHandlerFunction() }),
+      newTrigger: (functionName) => ({
+        timeBased: () => ({
+          onWeekDay: (weekDay) => ({
+            atHour: (hour) => ({
+              create: () => events.push({ type: 'create', functionName, weekDay, hour })
+            })
+          })
+        })
+      })
+    }
+  });
+
+  assert.deepEqual(JSON.parse(JSON.stringify(api.installWeeklyResetTrigger())), {
+    removed: 1,
+    installed: true,
+    functionName: 'resetWeeklySchedule',
+    weekDay: 'FRIDAY',
+    hour: 22
+  });
+  assert.deepEqual(events, [
+    { type: 'delete', handler: 'resetWeeklySchedule' },
+    { type: 'create', functionName: 'resetWeeklySchedule', weekDay: 'FRIDAY', hour: 22 }
+  ]);
 });
