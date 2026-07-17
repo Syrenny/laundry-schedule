@@ -33,7 +33,13 @@ function makeRuntime(reservations, metrics = {}) {
   const rows = reservations.map((row) => ({ ...row }));
   const context = {
     Date,
-    console,
+    console: {
+      log: (message) => {
+        metrics.logs ??= [];
+        metrics.logs.push(String(message));
+      },
+      error: console.error
+    },
     Utilities: { formatDate },
     LAUNDRY: {
       SHEETS: { MACHINES: 'Machines', RESERVATIONS: 'Reservations' },
@@ -144,6 +150,21 @@ test('reserveSlot строит ответ без повторного чтени
   assert.equal(metrics.reads.Machines, 1);
   assert.equal(metrics.reads.Reservations, 1);
   assert.equal(metrics.appends, 1);
+  const profile = JSON.parse(metrics.logs.find((line) => line.startsWith('PERF ')).slice(5));
+  assert.equal(profile.operation, 'reserveSlot');
+  assert.equal(profile.status, 'ok');
+  assert.equal(typeof profile.totalMs, 'number');
+  assert.deepEqual(Object.keys(profile.phasesMs), [
+    'lock',
+    'config',
+    'spreadsheetTimezone',
+    'user',
+    'machines',
+    'reservations',
+    'reservationWrite',
+    'auditWrite',
+    'build'
+  ]);
 });
 
 test('getReservationsProbe объясняет сопоставление строки со слотом', () => {

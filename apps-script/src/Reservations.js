@@ -1,4 +1,29 @@
 var LaundryReservations = (function () {
+  function createProfiler(operation) {
+    var startedAt = Date.now();
+    var previousAt = startedAt;
+    var phases = {};
+    var finished = false;
+
+    return {
+      mark: function (name) {
+        var now = Date.now();
+        phases[name] = now - previousAt;
+        previousAt = now;
+      },
+      finish: function (status) {
+        if (finished) return;
+        finished = true;
+        console.log('PERF ' + JSON.stringify({
+          operation: operation,
+          status: status,
+          totalMs: Date.now() - startedAt,
+          phasesMs: phases
+        }));
+      }
+    };
+  }
+
   function isoDate(date) {
     return Utilities.formatDate(date, 'UTC', 'yyyy-MM-dd');
   }
@@ -156,13 +181,27 @@ var LaundryReservations = (function () {
   }
 
   function getWeekSchedule(weekStartIso) {
-    var config = LaundryConfig.getConfig();
-    var sheetTimezone = LaundrySheets.getSpreadsheet().getSpreadsheetTimeZone();
-    var user = LaundryUsers.resolveCurrentUser(config);
-    var weekStart = weekStartIso || config.weekStart;
-    var machines = enabledMachines();
-    var active = activeReservations();
-    return buildWeekSchedule(weekStart, config, sheetTimezone, user, machines, active);
+    var profile = createProfiler('getWeekSchedule');
+    try {
+      var config = LaundryConfig.getConfig();
+      profile.mark('config');
+      var sheetTimezone = LaundrySheets.getSpreadsheet().getSpreadsheetTimeZone();
+      profile.mark('spreadsheetTimezone');
+      var user = LaundryUsers.resolveCurrentUser(config);
+      profile.mark('user');
+      var weekStart = weekStartIso || config.weekStart;
+      var machines = enabledMachines();
+      profile.mark('machines');
+      var active = activeReservations();
+      profile.mark('reservations');
+      var schedule = buildWeekSchedule(weekStart, config, sheetTimezone, user, machines, active);
+      profile.mark('build');
+      profile.finish('ok');
+      return schedule;
+    } catch (error) {
+      profile.finish('error');
+      throw error;
+    }
   }
 
   function getReservationsProbe(weekStartIso) {
@@ -209,16 +248,24 @@ var LaundryReservations = (function () {
 
   function reserveSlot(request) {
     var normalized = normalizeRequest(request);
+    var profile = createProfiler('reserveSlot');
     var lock = LockService.getScriptLock();
-    if (!lock.tryLock(5000)) {
+    var acquired = lock.tryLock(5000);
+    profile.mark('lock');
+    if (!acquired) {
+      profile.finish('busy');
       throw new Error('Service is busy. Try again in a few seconds.');
     }
 
     try {
       var config = LaundryConfig.getConfig();
+      profile.mark('config');
       var sheetTimezone = LaundrySheets.getSpreadsheet().getSpreadsheetTimeZone();
+      profile.mark('spreadsheetTimezone');
       var user = LaundryUsers.resolveCurrentUser(config);
+      profile.mark('user');
       var machines = enabledMachines();
+      profile.mark('machines');
       var machineAllowed = machines.some(function (machine) { return machine.id === normalized.machine_id; });
       if (!machineAllowed) throw new Error('Machine is disabled or unknown: ' + normalized.machine_id);
 
@@ -226,6 +273,7 @@ var LaundryReservations = (function () {
       if (!validTime) throw new Error('Slot time is not allowed: ' + normalized.start_time);
 
       var active = activeReservations();
+      profile.mark('reservations');
       var conflict = active.some(function (reservation) {
         return normalizeSheetValue(reservation.date, sheetTimezone, 'yyyy-MM-dd') === normalized.date
           && normalizeSheetValue(reservation.start_time, sheetTimezone, 'HH:mm') === normalized.start_time
@@ -266,8 +314,10 @@ var LaundryReservations = (function () {
         row,
         ['date', 'start_time', 'end_time']
       );
+      profile.mark('reservationWrite');
       LaundryAuditLog.record('reserve', 'reservation', id, normalized);
-      return buildWeekSchedule(
+      profile.mark('auditWrite');
+      var schedule = buildWeekSchedule(
         request.weekStart || config.weekStart,
         config,
         sheetTimezone,
@@ -275,6 +325,12 @@ var LaundryReservations = (function () {
         machines,
         active.concat([row])
       );
+      profile.mark('build');
+      profile.finish('ok');
+      return schedule;
+    } catch (error) {
+      profile.finish('error');
+      throw error;
     } finally {
       lock.releaseLock();
     }
