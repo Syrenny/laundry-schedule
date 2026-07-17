@@ -11,13 +11,20 @@ async function readAsset(assetPath) {
   return readFile(path.join(webDist, assetPath.replace(/^\//, '')), 'utf8');
 }
 
+function makeInlineScriptSafe(source) {
+  return source
+    .replaceAll('</script', '<\\/script')
+    .replaceAll('<!--', '<\\!--')
+    .replaceAll('javascript:', 'java" + "script:');
+}
+
 async function inlineFrontend() {
   const indexHtml = await readFile(path.join(webDist, 'index.html'), 'utf8');
   const cssAssets = [...indexHtml.matchAll(/<link[^>]+href="([^"]+\.css)"[^>]*>/g)].map((match) => match[1]);
   const jsAssets = [...indexHtml.matchAll(/<script[^>]+src="([^"]+\.js)"[^>]*><\/script>/g)].map((match) => match[1]);
 
   const css = await Promise.all(cssAssets.map(readAsset));
-  const js = await Promise.all(jsAssets.map(readAsset));
+  const js = (await Promise.all(jsAssets.map(readAsset))).map(makeInlineScriptSafe);
   let template = await readFile(path.join(appsScriptSrc, 'templates', 'index.html'), 'utf8');
   template = template.replace('<!-- APP_CSS -->', () => `<style>\n${css.join('\n')}\n</style>`);
   template = template.replace('<!-- APP_JS -->', () => `<script>\n${js.join('\n')}\n</script>`);
