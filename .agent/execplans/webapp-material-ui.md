@@ -31,6 +31,7 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
 - [x] (2026-07-17 14:48Z) После повторной ошибки `Request contains an invalid argument` удалены explicit `oauthScopes` из manifest и добавлена диагностика `clasp` перед push в GitHub Actions.
 - [x] (2026-07-17 15:41Z) Исправлен build-скрипт инлайна frontend: `String.replace` заменен на function replacement, чтобы символы `$&` внутри minified JS не подменялись на placeholder.
 - [x] (2026-07-17 15:45Z) Добавлена защита inline JS для Apps Script HtmlService: экранируются `</script`, `<!--`, а литерал `javascript:` разбивается на конкатенацию строк.
+- [x] (2026-07-17 15:52Z) Убран экспериментальный base64 bootstrap. Apps Script frontend теперь собирается отдельным Vite mode `apps-script`: без minify, без modulepreload polyfill и с targeted plugin для строкового литерала `javascript:`.
 - [x] (2026-07-17 15:22Z) Выявлено, что `clasp run` требует API executable deployment и не подходит для bootstrap runtime secrets сразу после `clasp push`.
 - [x] (2026-07-17 15:31Z) Workflow упрощен: GitHub Actions больше не вызывает `setRuntimeSecretsFromJson`; runtime secrets настраиваются вручную в Apps Script Script Properties для каждого окружения.
 
@@ -50,6 +51,8 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
   Evidence: в `apps-script/dist/index.html` встречались строки `<!-- APP_JS -->` внутри JS bundle. Причина: `String.replace` воспринимает `$&` в replacement string как специальную подстановку. После замены на callback replacement `rg -n "APP_JS|APP_CSS" apps-script/dist/index.html` ничего не находит, а `node --check` inline JS проходит.
 - Observation: После первого исправления белая страница сохранилась, а браузер показывал `Uncaught SyntaxError: Unexpected identifier 'Error'`.
   Evidence: в итоговом bundle были цельные литералы `javascript:throw new Error(...)` из React DOM. Для Apps Script HtmlService это рискованно, потому что HTML sanitizer может переписать такие строки. Build script теперь разбивает `javascript:` на `java" + "script:` и проверка подтверждает отсутствие цельного `javascript:throw new Error` в inline JS.
+- Observation: Base64 bootstrap был признан неадекватным решением.
+  Evidence: пользователь остановил изменение как слишком сложное и хрупкое. Реализация заменена на отдельный Vite `apps-script` mode и Rollup plugin, который меняет только JS chunks на этапе сборки, без runtime decode и `Function(source)`.
 
 ## Decision Log
 
@@ -116,6 +119,8 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
 2026-07-17: Исправлена причина белой страницы после открытия webapp. Build script теперь инлайнит CSS/JS через callback replacement, чтобы minified bundle не повреждался спец-подстановками JavaScript `String.replace`.
 
 2026-07-17: Добавлена дополнительная sanitize-стадия для inline JS в HtmlService. Она экранирует `</script`, `<!--` и разбивает литерал `javascript:`. Это направлено на ошибку браузера `Unexpected identifier 'Error'` в Apps Script iframe.
+
+2026-07-17: Экспериментальный base64 bootstrap удален. Текущий подход: `vite build --mode apps-script`, `minify: false`, `modulePreload: false`, `target: es2019`, плюс targeted Vite plugin для замены `javascript:` внутри JS chunks. Build проходит, inline JS проходит `node --check`, цельного `javascript:throw new Error` в итоговом HTML нет.
 
 ## Context and Orientation
 
@@ -530,6 +535,8 @@ Explicit `oauthScopes` в `appsscript.json` на MVP не задаются. Apps
 2026-07-17 / Codex: План обновлен по результатам white screen debug: причина была в повреждении inline JS из-за `$&` в replacement string; `scripts/build-apps-script.mjs` исправлен.
 
 2026-07-17 / Codex: План обновлен второй итерацией white screen debug: добавлена sanitize-стадия для inline JS, чтобы Apps Script HtmlService не ломал литералы `javascript:throw new Error(...)` из React DOM.
+
+2026-07-17 / Codex: План обновлен после отказа от base64 bootstrap. Сборка переведена на отдельный unminified Apps Script mode в Vite и targeted build-time transform без runtime eval.
 
 2026-07-17 / Codex: План обновлен после ошибки `clasp run`: автоматическая запись runtime secrets через `setRuntimeSecretsFromJson` удалена из workflow; runtime secrets задаются вручную в Apps Script Script Properties.
 

@@ -14,8 +14,7 @@ async function readAsset(assetPath) {
 function makeInlineScriptSafe(source) {
   return source
     .replaceAll('</script', '<\\/script')
-    .replaceAll('<!--', '<\\!--')
-    .replaceAll('javascript:', 'java" + "script:');
+    .replaceAll('<!--', '<\\!--');
 }
 
 async function inlineFrontend() {
