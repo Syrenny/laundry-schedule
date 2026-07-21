@@ -135,3 +135,47 @@ test('installWeeklyResetTrigger использует день начала не�
     { type: 'create', functionName: 'resetWeeklySchedule', weekDay: 'FRIDAY', hour: 22 }
   ]);
 });
+
+test('resetTargetSheet снимает закрепление перед копированием шаблона', () => {
+  const events = [];
+  const rangeValues = [['{{date:+0}}']];
+  const targetRange = {
+    getValues: () => rangeValues,
+    setValues: (values) => events.push({ type: 'setValues', values })
+  };
+  const templateRange = {
+    getNumRows: () => 1,
+    getNumColumns: () => 1,
+    copyTo: () => events.push({ type: 'copyTo' })
+  };
+  const templateSheet = {
+    getDataRange: () => templateRange,
+    getFrozenRows: () => 2,
+    getFrozenColumns: () => 1
+  };
+  const targetSheet = {
+    getMaxRows: () => 1,
+    getMaxColumns: () => 1,
+    setFrozenRows: (rows) => events.push({ type: 'setFrozenRows', rows }),
+    setFrozenColumns: (columns) => events.push({ type: 'setFrozenColumns', columns }),
+    clear: () => events.push({ type: 'clear' }),
+    getRange: () => targetRange
+  };
+  const api = makeApi();
+
+  api.resetTargetSheet(templateSheet, targetSheet, new Date('2026-07-13T12:00:00Z'), 'UTC');
+
+  assert.deepEqual(events.map((event) => event.type), [
+    'setFrozenRows',
+    'setFrozenColumns',
+    'clear',
+    'copyTo',
+    'setValues',
+    'setFrozenRows',
+    'setFrozenColumns'
+  ]);
+  assert.deepEqual(events[0], { type: 'setFrozenRows', rows: 0 });
+  assert.deepEqual(events[1], { type: 'setFrozenColumns', columns: 0 });
+  assert.deepEqual(events.at(-2), { type: 'setFrozenRows', rows: 2 });
+  assert.deepEqual(events.at(-1), { type: 'setFrozenColumns', columns: 1 });
+});

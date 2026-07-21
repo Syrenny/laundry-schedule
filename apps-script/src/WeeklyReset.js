@@ -151,6 +151,8 @@ var LaundryWeeklyReset = (function () {
     var columns = sourceRange.getNumColumns();
     ensureSheetSize(targetSheet, rows, columns);
 
+    targetSheet.setFrozenRows(0);
+    targetSheet.setFrozenColumns(0);
     targetSheet.clear({ contentsOnly: false });
     sourceRange.copyTo(targetSheet.getRange(1, 1, rows, columns), { contentsOnly: false });
 
@@ -231,6 +233,7 @@ var LaundryWeeklyReset = (function () {
     _test: {
       addDays: addDays,
       replaceDateTagsInValues: replaceDateTagsInValues,
+      resetTargetSheet: resetTargetSheet,
       startOfWeek: startOfWeek
     }
   };
